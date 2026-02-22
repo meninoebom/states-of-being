@@ -642,15 +642,14 @@ const melody = new Tone.Synth({
   volume: -18,
 }).connect(masterFilter);
 
-// --- PERCUSSION: wood block (PolySynth to prevent retriggering clicks) ---
+// --- PERCUSSION: wood block (longer release to reduce retriggering pops) ---
 const percFilter = new Tone.Filter({ frequency: 2000, type: "bandpass", Q: 2 }).connect(masterFilter);
 const percReverb = new Tone.Reverb({ decay: 1.5, wet: 0.3 }).connect(percFilter);
-const perc = new Tone.PolySynth(Tone.MembraneSynth, {
-  maxPolyphony: 4,
+const perc = new Tone.MembraneSynth({
   pitchDecay: 0.008,
   octaves: 2,
   oscillator: { type: "sine" },
-  envelope: { attack: 0.002, decay: 0.08, sustain: 0, release: 0.06 },
+  envelope: { attack: 0.002, decay: 0.08, sustain: 0, release: 0.1 },
   volume: -12,
 }).connect(percReverb);
 
