@@ -176,6 +176,21 @@
     <div class="meter-track"><div class="meter-fill color-symmetry" id="m-symmetry" style="width:0%"></div></div>
     <span class="meter-val" id="v-symmetry">0.00</span>
   </div>
+  <div class="meter-row">
+    <span class="meter-label">coherence</span>
+    <div class="meter-track"><div class="meter-fill" id="m-coherence" style="width:0%; background:#77aacc"></div></div>
+    <span class="meter-val" id="v-coherence">0.00</span>
+  </div>
+  <div class="meter-row">
+    <span class="meter-label">ankles</span>
+    <div class="meter-track"><div class="meter-fill" id="m-ankleSpread" style="width:0%; background:#88aa88"></div></div>
+    <span class="meter-val" id="v-ankleSpread">0.00</span>
+  </div>
+  <div class="meter-row">
+    <span class="meter-label">wrists</span>
+    <div class="meter-track"><div class="meter-fill" id="m-wristSpread" style="width:0%; background:#aa88aa"></div></div>
+    <span class="meter-val" id="v-wristSpread">0.00</span>
+  </div>
 
   <div class="fps-line"><span id="d-fps">0</span> fps | tracking: <span id="d-tracking" style="color:#f44">no</span></div>
 </div>
@@ -292,6 +307,9 @@ const ranges = {
   verticality: new AdaptiveRange(0.02, 0.2),
   symmetry:    new AdaptiveRange(0, 1, 0.999), // slower decay — symmetry is stable
   limbExtension: new AdaptiveRange(0, 0.3),
+  coherence:   new AdaptiveRange(0, 0.01, 0.999),
+  ankleSpread: new AdaptiveRange(0, 0.2),
+  wristSpread: new AdaptiveRange(0, 0.3),
 };
 
 // --- History buffers ---
@@ -302,6 +320,7 @@ const accelHistory = [];       // per-frame mean acceleration
 const jerkHistory = [];        // per-frame mean jerk
 const leftVelHistory = [];
 const rightVelHistory = [];
+const velDiffHistory = [];      // left-right velocity difference per frame (for coherence)
 let sadnessDuration = 0;
 
 // --- Helper: distance between two landmarks ---
@@ -326,7 +345,8 @@ function jointVelocities(landmarks, prev, joints) {
 }
 
 function computePrimitives(landmarks) {
-  const out = { velocity: 0, jerkiness: 0, contraction: 0.5, verticality: 0.5, symmetry: 0.5 };
+  const out = { velocity: 0, jerkiness: 0, contraction: 0.5, verticality: 0.5, symmetry: 0.5,
+                coherence: 0.5, ankleSpread: 0.5, wristSpread: 0.5 };
 
   // =====================================================================
   // SHAPE PRIMITIVES (no history needed)
@@ -368,8 +388,19 @@ function computePrimitives(landmarks) {
     .filter(i => landmarks[i].visibility > 0.3)
     .map(i => Math.sqrt((landmarks[i].x - centerX) ** 2 + (landmarks[i].y - centerY) ** 2));
   if (extDists.length > 0) {
-    // Not used as a top-level primitive yet, but available for emotions
     out._limbExtension = ranges.limbExtension.normalize(mean(extDists));
+  }
+
+  // --- Ankle Spread: groundedness (wide stance = grounded) ---
+  if (landmarks[27].visibility > 0.3 && landmarks[28].visibility > 0.3) {
+    const rawAnkleSpread = Math.abs(landmarks[27].x - landmarks[28].x);
+    out.ankleSpread = ranges.ankleSpread.normalize(rawAnkleSpread);
+  }
+
+  // --- Wrist Spread: expansiveness (arms wide = open) ---
+  if (landmarks[15].visibility > 0.3 && landmarks[16].visibility > 0.3) {
+    const rawWristSpread = Math.abs(landmarks[15].x - landmarks[16].x);
+    out.wristSpread = ranges.wristSpread.normalize(rawWristSpread);
   }
 
   // =====================================================================
@@ -412,8 +443,11 @@ function computePrimitives(landmarks) {
   leftVelHistory.push(mean(leftVels));
   rightVelHistory.push(mean(rightVels));
 
+  // Track left-right velocity difference for coherence
+  velDiffHistory.push(mean(leftVels) - mean(rightVels));
+
   // Trim to window
-  for (const h of [velocityHistory, accelHistory, jerkHistory, leftVelHistory, rightVelHistory]) {
+  for (const h of [velocityHistory, accelHistory, jerkHistory, leftVelHistory, rightVelHistory, velDiffHistory]) {
     while (h.length > WINDOW) h.shift();
   }
 
@@ -436,6 +470,17 @@ function computePrimitives(landmarks) {
     out.symmetry = Math.min(mL, mR) / maxM;
   }
 
+  // --- Coherence: are limbs moving in related timing? ---
+  // High variance of (leftVel - rightVel) = incoherent/chaotic. Low = coordinated.
+  // This replaces raw asymmetry as the anger signal.
+  if (velDiffHistory.length > 5) {
+    const meanDiff = mean(velDiffHistory);
+    const variance = velDiffHistory.reduce((acc, d) => acc + (d - meanDiff) ** 2, 0) / velDiffHistory.length;
+    // Invert: high coherence = low variance. Normalize adaptively.
+    const rawIncoherence = Math.sqrt(variance);
+    out.coherence = 1 - ranges.coherence.normalize(rawIncoherence);
+  }
+
   return out;
 }
 
@@ -448,13 +493,16 @@ function computePrimitives(landmarks) {
 // preventing everything from reading 0.5 all the time.
 
 const emotions = { anger: 0, sadness: 0, fear: 0, craving: 0, flow: 0 };
+let currentPrimitives = { velocity: 0, jerkiness: 0, contraction: 0.5, verticality: 0.5, symmetry: 0.5,
+                          coherence: 0.5, ankleSpread: 0.5, wristSpread: 0.5 };
 
 function computeEmotions(p) {
   const rate = 0.1; // lerp rate — slightly faster for responsiveness
 
-  // --- Anger: fast OR jagged — very low threshold ---
+  // --- Anger: fast OR jagged OR incoherent — very low threshold ---
   // Shaking violently in place should slam this to 1.0
-  const angerRaw = p.velocity * 0.25 + p.jerkiness * 0.55 + (1 - p.symmetry) * 0.2;
+  // Uses coherence (limb timing) instead of raw symmetry — smooth asymmetric movement is fine
+  const angerRaw = p.velocity * 0.25 + p.jerkiness * 0.45 + (1 - p.coherence) * 0.3;
   const angerGate = Math.max(
     smoothstep(0.08, 0.25, p.velocity),   // low bar for speed
     smoothstep(0.1, 0.3, p.jerkiness)     // very low bar for jerkiness
@@ -471,17 +519,17 @@ function computeEmotions(p) {
   // The signature is rapid small oscillations — shaking, trembling, flinching
   // Gate: jerkiness must be high relative to velocity (lots of direction changes per unit of speed)
   const jerkToVelRatio = p.velocity > 0.05 ? p.jerkiness / Math.max(0.1, p.velocity) : p.jerkiness;
-  const fearRaw = p.jerkiness * 0.5 + Math.min(1, jerkToVelRatio) * 0.3 + (1 - p.symmetry) * 0.2;
+  const fearRaw = p.jerkiness * 0.5 + Math.min(1, jerkToVelRatio) * 0.3 + (1 - p.coherence) * 0.2;
   const fearGate = smoothstep(0.3, 0.7, p.jerkiness); // needs actual jerkiness
   const fearTarget = fearRaw * fearGate;
 
   // --- Craving: moderate steady movement, reaching outward, not quite flowing ---
-  // Missing some quality of flow (symmetry or verticality)
+  // Wrist spread (arms reaching out) feeds craving instead of raw asymmetry
   const ext = p._limbExtension || 0.5;
   const cravingRaw = smoothstep(0.15, 0.5, p.velocity) * 0.25 +
                      (1 - p.jerkiness) * 0.2 +
-                     ext * 0.3 +
-                     (1 - p.symmetry) * 0.25;
+                     ext * 0.25 +
+                     p.wristSpread * 0.3;
   const cravingGate = smoothstep(0.15, 0.4, p.velocity) * smoothstep(0.6, 0.3, p.jerkiness);
   const cravingTarget = cravingRaw * cravingGate * 0.8;
 
@@ -590,8 +638,13 @@ function updateCloud() {
   const inner = `hsl(${h}, ${Math.min(100, s + 15)}%, ${Math.min(60, l + 12)}%)`;
   const mid   = `hsl(${h}, ${s}%, ${l}%)`;
   const outer = `hsl(${h}, ${Math.max(0, s - 15)}%, ${Math.max(2, l - 8)}%)`;
+
+  // Ellipse shape responds to ankle spread — wide stance = wide low cloud, narrow = tall oval
+  const spread = currentPrimitives.ankleSpread;
+  const xRadius = Math.round(40 + spread * 40);   // 40%→80%
+  const yRadius = Math.round(70 - spread * 30);   // 70%→40%
   cloud.style.background =
-    `radial-gradient(ellipse at center, ${inner} 0%, ${mid} 45%, ${outer} 75%, #060608 100%)`;
+    `radial-gradient(${xRadius}% ${yRadius}% at center, ${inner} 0%, ${mid} 45%, ${outer} 75%, #060608 100%)`;
 }
 
 // =============================================================================
@@ -629,18 +682,27 @@ const bassGrowl = new Tone.MonoSynth({
 }).connect(masterFilter);
 
 // --- PAD (flow/harmony channel) ---
+// Chebyshev waveshaper + AutoFilter for pad distortion transform:
+// calm = warm resonant pad, anger = corroded screaming harmonics
+const padDistortion = new Tone.Chebyshev(1).connect(masterFilter);
+const padAutoFilter = new Tone.AutoFilter({ frequency: 0.5, depth: 0.3, baseFrequency: 400, octaves: 2.5 }).connect(padDistortion);
+padAutoFilter.start();
 const pad = new Tone.PolySynth(Tone.Synth, {
   oscillator: { type: "sine4" },
   envelope: { attack: 1.5, decay: 2, sustain: 0.6, release: 3 },
   volume: -14,
-}).connect(masterFilter);
+}).connect(padAutoFilter);
 
 // --- MELODY (craving channel) ---
+// Chorus + vibrato chain: dry MIDI tone → jazz vocalist warmth during flow
+const melodyChorus = new Tone.Chorus({ frequency: 1.5, delayTime: 3.5, depth: 0.4, wet: 0 }).connect(masterFilter);
+melodyChorus.start();
+const melodyVibrato = new Tone.Vibrato({ frequency: 4.5, depth: 0, wet: 0 }).connect(melodyChorus);
 const melody = new Tone.Synth({
   oscillator: { type: "sine" },
   envelope: { attack: 0.3, decay: 0.6, sustain: 0.3, release: 1.5 },
   volume: -18,
-}).connect(masterFilter);
+}).connect(melodyVibrato);
 
 // --- PERCUSSION: wood block (longer release to reduce retriggering pops) ---
 const percFilter = new Tone.Filter({ frequency: 2000, type: "bandpass", Q: 2 }).connect(masterFilter);
@@ -902,8 +964,17 @@ function updateMusic() {
   // Open growl filter as sadness sustains — more harmonics = more oppressive
   bassGrowl.filterEnvelope.octaves = 1.5 + sustainFactor * 3;
 
-  // --- Pad ---
+  // --- Pad: volume + distortion transform ---
   pad.volume.rampTo(-20 + emotions.flow * 14, 1.5);
+  // Chebyshev order: 1 (clean) → 50 (screaming harmonics) with anger
+  const chebOrder = Math.max(1, Math.round(1 + emotions.anger * 49));
+  padDistortion.set({ order: chebOrder });
+  // AutoFilter: slow and subtle when calm, fast and deep when angry
+  padAutoFilter.frequency.rampTo(0.5 + emotions.anger * 8, 1);
+  padAutoFilter.depth.rampTo(0.15 + emotions.anger * 0.7, 1);
+  // Wrist spread opens pad filter — arms wide = warm open resonance
+  const padFilterBoost = currentPrimitives.wristSpread * 1500;
+  padAutoFilter.baseFrequency = 400 + padFilterBoost;
 
   // --- Percussion filter: round (low) when calm/sad, piercing (high) when agitated ---
   const percFreq = 800 + emotions.flow * 1500           // calm: warm mid
@@ -949,8 +1020,13 @@ function updateMusic() {
   // Filter opens with intensity — more harmonics = more sawtooth nastiness
   stillnessFilter.frequency.rampTo(200 + stillnessIntensity * 2000, 1);
 
-  // --- Melody volume: louder during flow ---
+  // --- Melody: volume + chorus/vibrato warmth ---
   melody.volume.rampTo(emotions.flow > 0.15 ? -12 + emotions.flow * 6 : -22, 1);
+  // Chorus: dry → lush during flow
+  melodyChorus.wet.rampTo(emotions.flow > 0.2 ? 0.2 + emotions.flow * 0.5 : 0, 1.5);
+  // Vibrato: none → subtle jazz vibrato during flow
+  melodyVibrato.depth.rampTo(emotions.flow > 0.3 ? 0.05 + emotions.flow * 0.12 : 0, 1);
+  melodyVibrato.wet.rampTo(emotions.flow > 0.3 ? 0.4 + emotions.flow * 0.4 : 0, 1);
 
   // --- Bell: audible only during flow ---
   bell.volume.rampTo(emotions.flow > 0.3 ? -18 + emotions.flow * 8 : -40, 1.5);
@@ -1014,7 +1090,7 @@ function updateDebug(primitives) {
   }
 
   // Primitives
-  for (const key of ["velocity", "jerkiness", "contraction", "verticality", "symmetry"]) {
+  for (const key of ["velocity", "jerkiness", "contraction", "verticality", "symmetry", "coherence", "ankleSpread", "wristSpread"]) {
     const v = primitives[key];
     document.getElementById(`m-${key}`).style.width = `${v * 100}%`;
     document.getElementById(`v-${key}`).textContent = v.toFixed(2);
@@ -1146,6 +1222,7 @@ function detectLoop(poseLandmarker, video) {
   if (results.landmarks && results.landmarks.length > 0) {
     const landmarks = smoothLandmarks(results.landmarks[0], now / 1000);
     const primitives = computePrimitives(landmarks);
+    currentPrimitives = primitives;
     computeEmotions(primitives);
     updateDebug(primitives);
     updateMusic();
