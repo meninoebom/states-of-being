@@ -99,6 +99,37 @@
     margin-top: 12px; font-size: 16px; color: #555;
   }
 
+  /* --- Emotion Bar (presentation UI) --- */
+  #emotion-bar {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
+    height: 70px; display: flex; justify-content: center; align-items: flex-end;
+    gap: 24px; padding: 0 40px 8px;
+    background: linear-gradient(transparent, rgba(0,0,0,0.5) 40%);
+    pointer-events: none;
+  }
+  .ebar {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+  }
+  .ebar-track {
+    width: 36px; height: 38px; background: rgba(255,255,255,0.06);
+    border-radius: 4px; position: relative; overflow: hidden;
+  }
+  .ebar-fill {
+    position: absolute; bottom: 0; width: 100%; border-radius: 4px;
+    transition: height 0.2s ease;
+  }
+  .ebar-label {
+    font-family: monospace; font-size: 10px; text-transform: uppercase;
+    letter-spacing: 2px; color: #555;
+    transition: color 0.3s;
+  }
+  .ebar.dominant .ebar-track {
+    box-shadow: 0 0 14px var(--ebar-color);
+  }
+  .ebar.dominant .ebar-label {
+    color: #ccc;
+  }
+
   #video { display: none; }
 
   /* --- Orb Canvas --- */
@@ -193,6 +224,29 @@
   </div>
 
   <div class="fps-line"><span id="d-fps">0</span> fps | tracking: <span id="d-tracking" style="color:#f44">no</span> | scene: <span id="d-scene">0</span> | armed: <span id="d-armed">no</span></div>
+</div>
+
+<div id="emotion-bar">
+  <div class="ebar" data-emotion="anger" style="--ebar-color:#ff4444">
+    <div class="ebar-track"><div class="ebar-fill" style="background:#ff4444; height:0%"></div></div>
+    <div class="ebar-label">anger</div>
+  </div>
+  <div class="ebar" data-emotion="sadness" style="--ebar-color:#4466cc">
+    <div class="ebar-track"><div class="ebar-fill" style="background:#4466cc; height:0%"></div></div>
+    <div class="ebar-label">still</div>
+  </div>
+  <div class="ebar" data-emotion="fear" style="--ebar-color:#cc44cc">
+    <div class="ebar-track"><div class="ebar-fill" style="background:#cc44cc; height:0%"></div></div>
+    <div class="ebar-label">fear</div>
+  </div>
+  <div class="ebar" data-emotion="craving" style="--ebar-color:#ccaa22">
+    <div class="ebar-track"><div class="ebar-fill" style="background:#ccaa22; height:0%"></div></div>
+    <div class="ebar-label">craving</div>
+  </div>
+  <div class="ebar" data-emotion="flow" style="--ebar-color:#44dd88">
+    <div class="ebar-track"><div class="ebar-fill" style="background:#44dd88; height:0%"></div></div>
+    <div class="ebar-label">flow</div>
+  </div>
 </div>
 
 <video id="video" playsinline autoplay muted></video>
@@ -503,9 +557,9 @@ function computeEmotions(p) {
   // Shaking violently in place should slam this to 1.0
   // ONLY jerkiness gates anger — smooth fast movement stays in flow
   const angerRaw = p.velocity * 0.25 + p.jerkiness * 0.45 + (1 - p.coherence) * 0.3;
-  const angerGate = smoothstep(0.18, 0.40, p.jerkiness); // jerkiness is the ONLY gate
+  const angerGate = smoothstep(0.14, 0.35, p.jerkiness); // was 0.18/0.40, slightly easier to trigger
   const velocityBoost = smoothstep(0.6, 0.9, p.velocity) * 0.3; // extreme speed adds a little
-  const angerTarget = (angerRaw + velocityBoost) * angerGate * 1.4;
+  const angerTarget = (angerRaw + velocityBoost) * angerGate * 1.5; // was 1.4
 
   // --- Sadness: still AND contracted AND slumped ---
   // Gate: velocity must be LOW. If you're moving, you're not sad in this model.
@@ -1251,8 +1305,8 @@ async function initPose() {
 // =============================================================================
 
 const debugEl = document.getElementById("debug");
-let debugVisible = true; // start visible for development
-debugEl.style.display = "block";
+let debugVisible = false; // hidden by default; emotion bar is always visible. Press 'd' for dev panel.
+debugEl.style.display = "none";
 
 function updateDebug(primitives) {
   if (!debugVisible) return;
@@ -1303,6 +1357,24 @@ function resizeOrbCanvas() {
 }
 window.addEventListener("resize", resizeOrbCanvas);
 resizeOrbCanvas();
+
+// =============================================================================
+// EMOTION BAR (presentation UI — always visible)
+// =============================================================================
+
+const ebarEls = document.querySelectorAll('#emotion-bar .ebar');
+function updateEmotionBar() {
+  ebarEls.forEach(el => {
+    const name = el.dataset.emotion;
+    const val = emotions[name] || 0;
+    el.querySelector('.ebar-fill').style.height = (val * 100) + '%';
+    if (name === currentDominant && val > 0.05) {
+      el.classList.add('dominant');
+    } else {
+      el.classList.remove('dominant');
+    }
+  });
+}
 
 let lastOrbLandmarks = null;
 
@@ -1419,6 +1491,7 @@ function detectLoop(poseLandmarker, video) {
   }
 
   updateCloud();
+  updateEmotionBar();
 
   frameCount++;
   if (Date.now() - lastFpsTime >= 1000) {
