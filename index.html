@@ -44,6 +44,19 @@
   #start-screen .intro strong {
     color: #aaa;
   }
+  #start-screen table {
+    border-collapse: collapse; width: 100%; margin: 8px 0;
+    font-size: 13px;
+  }
+  #start-screen th {
+    text-align: left; color: #999; font-weight: 600;
+    padding: 6px 10px; border-bottom: 1px solid #2a2a2a;
+    text-transform: uppercase; letter-spacing: 1px; font-size: 11px;
+  }
+  #start-screen td {
+    padding: 5px 10px; color: #777; border-bottom: 1px solid #1a1a1a;
+  }
+  #start-screen td:first-child { color: #aaa; font-weight: 600; }
   #start-btn {
     font-size: 16px; padding: 16px 48px; background: transparent;
     color: #888; border: 1px solid #333; border-radius: 48px;
@@ -177,9 +190,15 @@
 <div id="start-screen">
   <h1>States of Being</h1>
   <div class="intro">
-    <p>A webcam watches a dancer through MediaPipe Pose, which tracks 33 points on the body 30 times per second. From those points, we extract eight movement primitives — raw physical measurements like how fast you're moving, how jerky or smooth your motion is, whether your body is contracted or open, how upright you are, how symmetrically your limbs move, whether your arms and legs are spread wide or close together, and how synchronized your left and right sides are in timing.</p>
-    <p>These primitives feed into a weighted formula that produces five emotional states. Emotions aren't mapped to single gestures — they emerge from <em>combinations</em> of primitives. <strong>Flow</strong> requires smooth movement with an open, upright posture. <strong>Anger</strong> gates entirely on jerkiness — no matter how fast you move, if it's smooth, it stays in flow; only erratic, jagged motion triggers agitation. <strong>Stillness</strong> activates when velocity drops and the body contracts inward. <strong>Fear</strong> looks for high jerkiness relative to speed — trembling, flinching. <strong>Craving</strong> reads moderate, reaching movement with low jerk.</p>
-    <p>Each emotion drives the music and color in real time. Flow produces warm jazz chords, gentle kalimba plucks, and blue-teal light. Anger distorts the pad, scatters chromatic melody stabs, and shifts to deep red. Stillness builds an oppressive drone and bleaches the screen toward white. The system adapts to <em>your</em> range — there's no calibration. It just watches, learns your extremes, and responds.</p>
+    <p>A webcam tracks 33 body points 30 times per second, extracting eight movement primitives — velocity, jerkiness, contraction, verticality, symmetry, coherence, and limb spread. These combine into five emotional states that drive music and color in real time. The system adapts to <em>your</em> range with no calibration.</p>
+    <table>
+      <tr><th>Emotion</th><th>What Triggers It</th><th>Sound &amp; Color</th></tr>
+      <tr><td>Flow</td><td>Smooth movement, open posture, upright</td><td>Jazz chords, kalimba, blue-teal</td></tr>
+      <tr><td>Anger</td><td>Jerky, erratic motion (speed alone won't trigger it)</td><td>Distorted pad, chromatic stabs, deep red</td></tr>
+      <tr><td>Stillness</td><td>Low velocity, contracted, slumped</td><td>Oppressive drone, bleaching white</td></tr>
+      <tr><td>Fear</td><td>High jerkiness relative to speed — trembling</td><td>Tremolo stabs, sickly yellow-green</td></tr>
+      <tr><td>Craving</td><td>Moderate reaching movement, low jerk</td><td>Warm amber tones</td></tr>
+    </table>
   </div>
   <button id="start-btn" onclick="startExperience()">Begin</button>
 </div>
