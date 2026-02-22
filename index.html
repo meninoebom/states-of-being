@@ -647,12 +647,10 @@ const percFilter = new Tone.Filter({ frequency: 2000, type: "bandpass", Q: 2 }).
 const percReverb = new Tone.Reverb({ decay: 1.5, wet: 0.3 }).connect(percFilter);
 const perc = new Tone.PolySynth(Tone.MembraneSynth, {
   maxPolyphony: 4,
-  voice: {
-    pitchDecay: 0.008,
-    octaves: 2,
-    oscillator: { type: "sine" },
-    envelope: { attack: 0.002, decay: 0.08, sustain: 0, release: 0.06 },
-  },
+  pitchDecay: 0.008,
+  octaves: 2,
+  oscillator: { type: "sine" },
+  envelope: { attack: 0.002, decay: 0.08, sustain: 0, release: 0.06 },
   volume: -12,
 }).connect(percReverb);
 
@@ -660,10 +658,8 @@ const perc = new Tone.PolySynth(Tone.MembraneSynth, {
 const bellReverb = new Tone.Reverb({ decay: 4, wet: 0.6 }).connect(masterFilter);
 const bell = new Tone.PolySynth(Tone.Synth, {
   maxPolyphony: 3,
-  voice: {
-    oscillator: { type: "triangle8" },
-    envelope: { attack: 0.01, decay: 3, sustain: 0, release: 2 },
-  },
+  oscillator: { type: "triangle8" },
+  envelope: { attack: 0.01, decay: 3, sustain: 0, release: 2 },
   volume: -22,
 }).connect(bellReverb);
 
