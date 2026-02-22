@@ -485,15 +485,22 @@ function computeEmotions(p) {
   const cravingGate = smoothstep(0.15, 0.4, p.velocity) * smoothstep(0.6, 0.3, p.jerkiness);
   const cravingTarget = cravingRaw * cravingGate * 0.8;
 
-  // --- Flow: medium velocity + low jerk + open + upright + symmetric ---
-  // This is multiplicative — ALL conditions must be met. Missing any one kills flow.
-  const flowTarget = Math.min(1,
-    smoothstep(0.08, 0.3, p.velocity) *         // moving (even slow movement counts)
-    smoothstep(0.5, 0.1, p.jerkiness) *          // smooth (jerk LOW)
-    smoothstep(0.3, 0.0, p.contraction) *         // open (contraction LOW)
-    smoothstep(0.2, 0.7, p.verticality) *         // upright
-    smoothstep(0.3, 0.7, p.symmetry)              // balanced
-  ) * 1.8; // scale up slightly so it's achievable
+  // --- Flow: smooth movement of ANY kind — even very slow tai-chi ---
+  // Core signal: smoothness ratio (is velocity >> jerkiness?)
+  const smoothnessRatio = p.velocity / (p.velocity + p.jerkiness + 0.001);
+  const movementGate    = smoothstep(0.03, 0.15, p.velocity);    // very low threshold
+  const lowJerkGate     = smoothstep(0.55, 0.15, p.jerkiness);   // locks out anger/fear
+  const coreFlow        = smoothnessRatio * movementGate * lowJerkGate;
+
+  // Posture: additive bonuses (max ~0.35) — help but don't gate
+  const opennessBonus    = (1 - p.contraction) * 0.12;
+  const verticalityBonus = p.verticality        * 0.12;
+  const symmetryBonus    = p.symmetry           * 0.11;
+  const postureBonus     = opennessBonus + verticalityBonus + symmetryBonus;
+
+  const postureContrib = postureBonus * Math.min(1, coreFlow / 0.25);
+  const flowRaw        = coreFlow * 0.65 + postureContrib;
+  const flowTarget     = Math.min(1, flowRaw * 1.4);
 
   // Lerp toward targets
   emotions.anger   += (Math.min(1, angerTarget)   - emotions.anger)   * (angerTarget > emotions.anger ? 0.2 : rate); // fast attack, normal decay
@@ -520,7 +527,8 @@ function smoothstep(edge0, edge1, x) {
 // =============================================================================
 
 const cloud = document.getElementById("cloud");
-let currentHue = 260, currentSat = 20, currentLight = 8;
+let currentHue = 215, currentSat = 18, currentLight = 9;
+let currentFlickerOffset = 0;
 
 function updateCloud() {
   let targetHue, targetSat, targetLight;
@@ -528,53 +536,62 @@ function updateCloud() {
   // Dominant emotion drives color
   const dominant = Math.max(emotions.anger, emotions.sadness, emotions.fear, emotions.craving, emotions.flow);
 
-  if (emotions.flow > 0.5 && emotions.flow >= dominant * 0.8) {
-    // Flow: warm blues, golds, soft oranges
+  if (emotions.flow > 0.4 && emotions.flow >= dominant * 0.8) {
+    // Flow: bioluminescent blue-teal
     const t = emotions.flow;
-    targetHue = 40 + t * 20; // 40-60 (golden)
-    targetSat = 40 + t * 35;
-    targetLight = 20 + t * 20;
+    targetHue   = 200 - t * 25;   // 200→175
+    targetSat   = 55 + t * 25;    // 55→80%
+    targetLight = 18 + t * 20;    // 18→38%
   } else if (emotions.sadness >= dominant * 0.8) {
-    // Sadness: dark, heavy, deep blue-purple
-    targetHue = 250;
-    targetSat = 20 + emotions.sadness * 15;
-    targetLight = 4 + (1 - emotions.sadness) * 10;
+    // Stillness: black→grey→white brightness overload
+    const sf = Math.min(1, sadnessDuration / 250);
+    targetHue   = 230 - sf * 30;  // 230→200 (blue-black bleaches to grey)
+    targetSat   = 30 - sf * 28;   // 30→2% (drains to near-greyscale)
+    targetLight = 8 + sf * 47;    // 8→55% (the bleach arc)
   } else if (emotions.anger >= dominant * 0.8) {
-    // Anger: reds, hot
-    targetHue = 0;
-    targetSat = 50 + emotions.anger * 40;
-    targetLight = 12 + emotions.anger * 18;
+    // Anger: burnt orange → deep blood red
+    const a = emotions.anger;
+    targetHue   = 20 - a * 22;    // 20→~358
+    targetSat   = 70 + a * 25;    // 70→95%
+    targetLight = 30 - a * 5;     // 30→25%
   } else if (emotions.fear >= dominant * 0.8) {
-    // Fear: magenta, electric
-    targetHue = 300;
-    targetSat = 40 + emotions.fear * 40;
-    targetLight = 10 + emotions.fear * 15;
+    // Fear: sickly yellow-green → bile yellow
+    const f = emotions.fear;
+    targetHue   = 75 - f * 20;    // 75→55
+    targetSat   = 55 + f * 20;    // 55→75%
+    targetLight = 22 + f * 23;    // 22→45%
   } else if (emotions.craving >= dominant * 0.8) {
-    // Craving: amber, restless
-    targetHue = 35;
-    targetSat = 50 + emotions.craving * 30;
-    targetLight = 12 + emotions.craving * 15;
+    // Craving: amber longing
+    const c = emotions.craving;
+    targetHue   = 35 + c * 10;    // 35→45
+    targetSat   = 65 + c * 10;    // 65→75%
+    targetLight = 22 + c * 13;    // 22→35%
   } else {
-    // Mixed / neutral
-    targetHue = 220;
-    targetSat = 15;
-    targetLight = 10;
+    // Neutral: deep midnight blue — dark, quiet, waiting
+    targetHue = 215; targetSat = 18; targetLight = 9;
   }
 
   const rate = 0.025;
-  currentHue += (targetHue - currentHue) * rate;
-  currentSat += (targetSat - currentSat) * rate;
+  currentHue   += (targetHue   - currentHue)   * rate;
+  currentSat   += (targetSat   - currentSat)   * rate;
   currentLight += (targetLight - currentLight) * rate;
 
+  // Lerped flicker for anger (avoids strobing; stays cinematic)
+  const flickerTarget = emotions.anger > 0.5
+    ? (Math.random() - 0.5) * emotions.anger * 8
+    : 0;
+  currentFlickerOffset += (flickerTarget - currentFlickerOffset) * 0.15;
+
   const pulse = Math.sin(Date.now() / 2000) * 1.5;
-  const agitationFlicker = emotions.anger > 0.5 ? (Math.random() - 0.5) * emotions.anger * 4 : 0;
   const h = currentHue;
   const s = Math.max(0, Math.min(100, currentSat));
-  const l = Math.max(2, Math.min(50, currentLight + pulse + agitationFlicker));
+  const l = Math.max(2, Math.min(60, currentLight + pulse + currentFlickerOffset));
 
-  const inner = `hsl(${h}, ${s}%, ${l + 10}%)`;
-  const outer = `hsl(${h}, ${Math.max(0, s - 20)}%, ${Math.max(2, l - 6)}%)`;
-  cloud.style.background = `radial-gradient(ellipse at center, ${inner} 0%, ${outer} 70%, #0a0a0f 100%)`;
+  const inner = `hsl(${h}, ${Math.min(100, s + 15)}%, ${Math.min(60, l + 12)}%)`;
+  const mid   = `hsl(${h}, ${s}%, ${l}%)`;
+  const outer = `hsl(${h}, ${Math.max(0, s - 15)}%, ${Math.max(2, l - 8)}%)`;
+  cloud.style.background =
+    `radial-gradient(ellipse at center, ${inner} 0%, ${mid} 45%, ${outer} 75%, #060608 100%)`;
 }
 
 // =============================================================================
@@ -606,7 +623,7 @@ const bassSub = new Tone.MonoSynth({
 
 const bassGrowl = new Tone.MonoSynth({
   oscillator: { type: "sawtooth8" },
-  envelope: { attack: 1.0, decay: 2.0, sustain: 0.8, release: 3.0 },
+  envelope: { attack: 1.5, decay: 2.0, sustain: 0.8, release: 3.0 },
   filterEnvelope: { attack: 0.5, decay: 1.0, sustain: 0.5, release: 2.0, baseFrequency: 40, octaves: 2.5 },
   volume: -30, // starts quiet, gets loud with sustained sadness
 }).connect(masterFilter);
@@ -625,16 +642,41 @@ const melody = new Tone.Synth({
   volume: -18,
 }).connect(masterFilter);
 
-// --- PERCUSSION: wood block (MembraneSynth with short pitched decay) ---
+// --- PERCUSSION: wood block (PolySynth to prevent retriggering clicks) ---
 const percFilter = new Tone.Filter({ frequency: 2000, type: "bandpass", Q: 2 }).connect(masterFilter);
 const percReverb = new Tone.Reverb({ decay: 1.5, wet: 0.3 }).connect(percFilter);
-const perc = new Tone.MembraneSynth({
-  pitchDecay: 0.008,
-  octaves: 2,
-  oscillator: { type: "sine" },
-  envelope: { attack: 0.001, decay: 0.08, sustain: 0, release: 0.04 },
+const perc = new Tone.PolySynth(Tone.MembraneSynth, {
+  maxPolyphony: 4,
+  voice: {
+    pitchDecay: 0.008,
+    octaves: 2,
+    oscillator: { type: "sine" },
+    envelope: { attack: 0.002, decay: 0.08, sustain: 0, release: 0.06 },
+  },
   volume: -12,
 }).connect(percReverb);
+
+// --- BELL: triangle wave with long decay, heavy reverb (flow instrument) ---
+const bellReverb = new Tone.Reverb({ decay: 4, wet: 0.6 }).connect(masterFilter);
+const bell = new Tone.PolySynth(Tone.Synth, {
+  maxPolyphony: 3,
+  voice: {
+    oscillator: { type: "triangle8" },
+    envelope: { attack: 0.01, decay: 3, sustain: 0, release: 2 },
+  },
+  volume: -22,
+}).connect(bellReverb);
+
+// --- BASS GONG: FM synthesis for pleasant initial gong tone (stillness instrument) ---
+const bassGong = new Tone.FMSynth({
+  harmonicity: 5.1,
+  modulationIndex: 2,
+  oscillator: { type: "sine" },
+  modulation: { type: "sine" },
+  envelope: { attack: 0.3, decay: 4, sustain: 0.1, release: 3 },
+  modulationEnvelope: { attack: 0.2, decay: 2, sustain: 0.3, release: 2 },
+  volume: -30,
+}).connect(masterFilter);
 
 // --- STILLNESS DRONE: uncomfortable sawtooth that builds when not moving ---
 const stillnessFilter = new Tone.Filter({ frequency: 200, type: "lowpass", rolloff: -12 }).connect(masterFilter);
@@ -660,11 +702,19 @@ fearLFO.connect(fearSynth.volume);
 // =============================================================================
 
 const CALM_CHORDS = [
-  ["C3", "Eb3", "G3", "Bb3"],      // Cm7
-  ["F3", "Ab3", "C4", "Eb4"],      // Fm7
-  ["Bb2", "D3", "F3", "Ab3"],      // Bbdom7
-  ["Eb3", "G3", "Bb3", "D4"],      // EbMaj7
-  ["Ab2", "C3", "Eb3", "G3"],      // AbMaj7
+  ["C3", "Eb3", "G3", "Bb3", "D4"],      // Cm9
+  ["F3", "Ab3", "C4", "Eb4", "G4"],      // Fm9
+  ["Bb2", "D3", "F3", "Ab3", "Eb4"],     // Bb13
+  ["Eb3", "G3", "Bb3", "D4", "F4"],      // EbMaj9
+  ["G2", "B2", "Db3", "F3", "Bb3"],      // G7b5 (tritone sub flavor)
+];
+
+// Jazz going "out" — transitional zone (anger 0.25-0.5)
+const TRANSITIONAL_CHORDS = [
+  ["C3", "Eb3", "Gb3", "Bb3", "D4"],     // Cm7b5 — darkened Cm
+  ["F3", "Ab3", "B3", "Eb4"],            // Fm + tritone sub
+  ["Bb2", "E3", "Ab3", "D4"],            // Bb7#11
+  ["Eb3", "A3", "Db4", "G4"],            // Eb lydian dominant
 ];
 
 const AGITATED_CHORDS = [
@@ -677,6 +727,11 @@ const AGITATED_CHORDS = [
 const SAD_BASS_NOTES = ["C1", "Bb0", "Ab0", "Eb1", "F1"];
 const CRAVING_NOTES = ["G3", "Ab3", "Bb3", "C4", "D4", "Eb4", "F4"];
 const FEAR_NOTES = ["B5", "C6", "Db6", "E5", "F5", "Gb5"];
+// Guided resolution phrases — pairs that resolve beautifully (jazz ballad feel)
+const FLOW_PHRASES = [
+  ["D4", "C4"], ["Bb3", "G3"], ["F4", "Eb4"], ["Ab3", "G3"],
+  ["D4", "Eb4"], ["C4", "Bb3"], ["G4", "F4"], ["Eb4", "D4"],
+];
 const CONSONANT_SCALE = ["C3", "D3", "Eb3", "F3", "G3", "Ab3", "Bb3", "C4", "D4", "Eb4", "F4", "G4"];
 
 let chordIndex = 0;
@@ -691,9 +746,10 @@ function startMusic() {
 
   Tone.Transport.bpm.value = 78;
 
-  // --- PAD: chords every 2 bars ---
+  // --- PAD: chords every 2 bars (calm → transitional → agitated) ---
   new Tone.Loop((time) => {
-    const chords = emotions.anger > 0.3 ? AGITATED_CHORDS : CALM_CHORDS;
+    const chords = emotions.anger > 0.5 ? AGITATED_CHORDS :
+                   emotions.anger > 0.25 ? TRANSITIONAL_CHORDS : CALM_CHORDS;
     const chord = chords[chordIndex % chords.length];
     pad.triggerAttackRelease(chord, "2m", time, 0.3 + emotions.flow * 0.4);
     chordIndex++;
@@ -736,27 +792,40 @@ function startMusic() {
         perc.triggerAttackRelease(pitch, "64n", time + offset, 0.1 + Math.random() * 0.2);
       }
     } else {
-      // Calm/normal: steady pulse
-      perc.triggerAttackRelease(pitch, "32n", time, baseVel);
+      // Calm/normal: steady pulse with gentle jazz swing
+      const swing = Math.random() < 0.35 ? 0.02 + Math.random() * 0.015 : 0;
+      perc.triggerAttackRelease(pitch, "32n", time + swing, baseVel);
     }
   }, "8n").start(0);
 
-  // --- MELODY: flow (consonant), craving (reaching), anger (dissonant) ---
+  // --- MELODY: flow (guided phrases), craving (reaching), anger (dissonant) ---
+  let phraseStep = 0; // tracks position within a resolution phrase
+  let currentPhrase = null;
   new Tone.Loop((time) => {
     if (emotions.flow > 0.15) {
-      // Flow melody: generous probability, consonant scale, longer notes
-      const prob = 0.2 + emotions.flow * 0.5; // up to 70% chance per 8th
-      if (Math.random() < prob) {
-        const note = CONSONANT_SCALE[Math.floor(Math.random() * CONSONANT_SCALE.length)];
-        const dur = emotions.flow > 0.5 ? "4n" : "8n";
+      // Flow melody: guided resolution phrases — jazz ballad feel
+      const prob = 0.15 + emotions.flow * 0.45;
+      if (currentPhrase && phraseStep < currentPhrase.length) {
+        // Continue phrase
+        const note = currentPhrase[phraseStep];
+        const dur = phraseStep === currentPhrase.length - 1 ? "4n" : "8n";
         melody.triggerAttackRelease(note, dur, time, 0.2 + emotions.flow * 0.35);
+        phraseStep++;
+      } else if (Math.random() < prob) {
+        // Start new phrase
+        currentPhrase = FLOW_PHRASES[Math.floor(Math.random() * FLOW_PHRASES.length)];
+        phraseStep = 0;
+        melody.triggerAttackRelease(currentPhrase[phraseStep], "8n", time, 0.2 + emotions.flow * 0.3);
+        phraseStep++;
       }
     } else if (emotions.craving > 0.3) {
+      currentPhrase = null;
       if (Math.random() < 0.3 + emotions.craving * 0.4) {
         const note = CRAVING_NOTES[Math.floor(Math.random() * CRAVING_NOTES.length)];
         melody.triggerAttackRelease(note, "8n", time, 0.2 + emotions.craving * 0.3);
       }
     } else if (emotions.anger > 0.3) {
+      currentPhrase = null;
       // Dissonant chromatic stabs when agitated
       if (Math.random() < emotions.anger * 0.4) {
         const CHROMATIC = ["C4","Db4","D4","Eb4","E4","F4","Gb4","G4","Ab4","A4","Bb4","B4"];
@@ -765,6 +834,29 @@ function startMusic() {
       }
     }
   }, "8n").start(0);
+
+  // --- BELL: gentle chimes during flow, gentle syncopation ---
+  new Tone.Loop((time) => {
+    if (emotions.flow > 0.3 && Math.random() < 0.2 + emotions.flow * 0.3) {
+      const bellNotes = ["Eb4", "G4", "Bb4", "C5", "D5"];
+      const note = bellNotes[Math.floor(Math.random() * bellNotes.length)];
+      // Gentle swing offset for jazz feel
+      const swing = Math.random() < 0.4 ? 0.03 : 0;
+      bell.triggerAttackRelease(note, "2n", time + swing, 0.15 + emotions.flow * 0.2);
+    }
+  }, "4n").start(0);
+
+  // --- GONG: deep resonant tone during stillness, blends into oppressive bass ---
+  new Tone.Loop((time) => {
+    if (emotions.sadness > 0.3) {
+      const sf = Math.min(1, sadnessDuration / 250);
+      const gongNotes = ["C1", "Eb1", "F1"];
+      const note = gongNotes[Math.floor(Math.random() * gongNotes.length)];
+      // Volume: pleasant at first, grows with sustained stillness
+      const vel = 0.2 + sf * 0.5;
+      bassGong.triggerAttackRelease(note, "1m", time, Math.min(1, vel));
+    }
+  }, "2m").start(0);
 
   // --- FEAR: high dissonant stabs ---
   new Tone.Loop((time) => {
@@ -864,6 +956,13 @@ function updateMusic() {
 
   // --- Melody volume: louder during flow ---
   melody.volume.rampTo(emotions.flow > 0.15 ? -12 + emotions.flow * 6 : -22, 1);
+
+  // --- Bell: audible only during flow ---
+  bell.volume.rampTo(emotions.flow > 0.3 ? -18 + emotions.flow * 8 : -40, 1.5);
+
+  // --- Gong: starts pleasant, grows oppressive with sustained stillness ---
+  const gongVol = emotions.sadness > 0.3 ? -20 + sustainFactor * 14 : -40;
+  bassGong.volume.rampTo(Math.min(-6, gongVol), 2);
 }
 
 // =============================================================================
@@ -968,40 +1067,48 @@ function drawOrbs(landmarks) {
 
   orbCtx.clearRect(0, 0, w, h);
 
-  // Pick orb color from current emotional state
-  const r = Math.round(120 + emotions.anger * 135);
-  const g = Math.round(120 + emotions.flow * 135);
-  const b = Math.round(120 + emotions.sadness * 100 + emotions.fear * 35);
+  // Orbs follow cloud hue — they're the light source, slightly brighter
+  const orbHue = currentHue;
+  const orbSat = Math.min(100, currentSat + 20);
+  const orbLight = Math.min(80, currentLight + 25);
+
+  // Flow: white-hot desaturated cores above 0.5 flow
+  const coreWhiteness = emotions.flow > 0.5 ? (emotions.flow - 0.5) * 2 : 0;
+  const coreSat = Math.round(orbSat * (1 - coreWhiteness * 0.8));
+  const coreLight = Math.round(Math.min(92, orbLight + coreWhiteness * 30));
+
+  // Fade orbs during stillness bleach so they don't punch holes
+  const orbAlpha = 0.7 - (Math.min(1, sadnessDuration / 250)) * 0.25;
 
   let drawn = 0;
   for (const orb of ORB_JOINTS) {
     const lm = landmarks[orb.idx];
-    if (lm.visibility < 0.3) continue; // lower threshold to show more
+    if (lm.visibility < 0.3) continue;
 
     // Mirror X (camera is mirrored) and map to screen
     const x = (1 - lm.x) * w;
     const y = lm.y * h;
 
     // Size pulses with velocity
-    const baseSize = orb.size * (w / 640) * 1.5; // 50% bigger
+    const baseSize = orb.size * (w / 640) * 1.5;
     const velPulse = 1 + (velocityHistory.length > 0 ?
       velocityHistory[velocityHistory.length - 1] * 20 : 0);
     const radius = baseSize * velPulse;
 
-    // Outer glow
+    // Outer glow — follows cloud color
     const grad = orbCtx.createRadialGradient(x, y, 0, x, y, radius);
-    grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.7)`);
-    grad.addColorStop(0.3, `rgba(${r}, ${g}, ${b}, 0.35)`);
-    grad.addColorStop(0.7, `rgba(${r}, ${g}, ${b}, 0.1)`);
-    grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+    grad.addColorStop(0,   `hsla(${orbHue}, ${coreSat}%, ${coreLight}%, ${orbAlpha})`);
+    grad.addColorStop(0.3, `hsla(${orbHue}, ${orbSat}%, ${orbLight}%, ${orbAlpha * 0.5})`);
+    grad.addColorStop(0.7, `hsla(${orbHue}, ${orbSat}%, ${orbLight}%, ${orbAlpha * 0.14})`);
+    grad.addColorStop(1,   `hsla(${orbHue}, ${orbSat}%, ${orbLight}%, 0)`);
 
     orbCtx.fillStyle = grad;
     orbCtx.beginPath();
     orbCtx.arc(x, y, radius, 0, Math.PI * 2);
     orbCtx.fill();
 
-    // Bright core dot
-    orbCtx.fillStyle = `rgba(${Math.min(255, r + 80)}, ${Math.min(255, g + 80)}, ${Math.min(255, b + 80)}, 0.8)`;
+    // Core dot — white-hot during flow
+    orbCtx.fillStyle = `hsla(${orbHue}, ${coreSat}%, ${Math.min(95, coreLight + 10)}%, 0.85)`;
     orbCtx.beginPath();
     orbCtx.arc(x, y, 4 * (w / 640), 0, Math.PI * 2);
     orbCtx.fill();

@@ -45,15 +45,16 @@ A browser-based biofeedback experiment that nudges a dancer toward calmness. A w
 | **Sadness** | low velocity + contraction + slumped | velocity < 0.4 |
 | **Fear** | high jerk-to-velocity ratio | jerkiness > 0.3 |
 | **Craving** | moderate speed + reaching out | velocity 0.15-0.4, low jerk |
-| **Flow** | mid velocity + low jerk + open + upright + symmetric | ALL conditions (multiplicative) |
+| **Flow** | smoothness ratio (vel/(vel+jerk)) + low jerk | velocity > 0.03, jerkiness < 0.55; posture is additive bonus not gate |
 
 ### Musical Response
 
 | State | Sound |
 |-------|-------|
-| **Agitated** | Dissonant chords, chromatic melody stabs, irregular wood block, harsh filter, fast tempo |
-| **Calm/Flow** | Consonant Cm7 chords, melodic scale runs, steady wood block pulse, warm filter, 78bpm |
-| **Depressed/Still** | Oppressive sub bass + sawtooth growl, building stillness drone, dark filter, slow tempo |
+| **Agitated** | Tritone clusters, chromatic stabs, irregular wood block, harsh filter, fast tempo |
+| **Transitional (anger 0.25-0.5)** | Jazz "going out" — darkened chords (Cm7b5, Bb7#11), tritone subs |
+| **Calm/Flow** | Cm9/Fm9/EbMaj9 jazz voicings, guided resolution melody phrases, bell chimes (triangle8), steady wood block with jazz swing, warm filter, 78bpm |
+| **Depressed/Still** | FM gong (pleasant) → sub bass weight → oppressive sawtooth growl, building stillness drone |
 | **Fear** | High sawtooth stabs with tremolo LFO |
 
 ### AdaptiveRange (no calibration)
@@ -66,15 +67,21 @@ Anger uses fast attack (0.2) but normal decay (0.1) so shaking registers immedia
 
 ## Known Issues / Next Steps
 
-- **Audio pops**: Some clicking/popping from synth voices — likely from retriggering synths too fast or missing release envelopes. Needs investigation. Could be MembraneSynth (wood block) retriggering before previous note finishes, or the stillness drone attack/release.
+- **Audio pops**: Fixed by switching perc from MembraneSynth to PolySynth(MembraneSynth) with maxPolyphony:4. Also added attack cushion to bassGrowl. If pops persist, check bell/gong voice overlap.
 - **Tracking latency**: MediaPipe detection runs at rAF speed. Could decouple detection frequency from render frequency for lower latency.
 - **Flow threshold**: Has been tuned down multiple times. User wants flow to register at very slow, smooth movement.
 - **Anger threshold**: Similarly tuned down. Shaking in place should slam anger to 1.0.
 
 ## Visual Design
 
-- **Color cloud**: Fullscreen radial gradient, hue/saturation driven by dominant emotion
-- **Orbs**: Translucent gradient circles at 13 joint positions, color shifts with emotion, size pulses with velocity
+- **Color cloud**: Fullscreen 3-stop radial gradient, driven by dominant emotion
+  - Flow: bioluminescent blue-teal (H:200→175, S:55→80%, L:18→38%)
+  - Anger: burnt orange → blood red (H:20→358, S:70→95%)
+  - Stillness: black → grey → white bleach arc (L:8→55%, S:30→2%) — brightness overload
+  - Fear: sickly yellow-green (H:75→55)
+  - Neutral: deep midnight blue (H:215, S:18%, L:9%)
+- **Orbs**: Follow cloud hue, white-hot desaturated cores during high flow, fade during stillness bleach
+- **Anger flicker**: Lerped at 0.15 rate (cinematic instability, not strobing)
 - **Debug panel**: Toggle with 'd' key. Shows emotion meters + raw primitive meters. Heading-sized text for visibility while dancing.
 
 ## Development Workflow
