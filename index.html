@@ -504,10 +504,10 @@ function computeEmotions(p) {
   // Uses coherence (limb timing) instead of raw symmetry — smooth asymmetric movement is fine
   const angerRaw = p.velocity * 0.25 + p.jerkiness * 0.45 + (1 - p.coherence) * 0.3;
   const angerGate = Math.max(
-    smoothstep(0.08, 0.25, p.velocity),   // low bar for speed
-    smoothstep(0.1, 0.3, p.jerkiness)     // very low bar for jerkiness
+    smoothstep(0.12, 0.30, p.velocity),   // raised from 0.08/0.25
+    smoothstep(0.15, 0.35, p.jerkiness)   // raised from 0.1/0.3
   );
-  const angerTarget = angerRaw * angerGate * 1.6; // strong amplifier
+  const angerTarget = angerRaw * angerGate * 1.4; // was 1.6
 
   // --- Sadness: still AND contracted AND slumped ---
   // Gate: velocity must be LOW. If you're moving, you're not sad in this model.
@@ -551,7 +551,7 @@ function computeEmotions(p) {
   const flowTarget     = Math.min(1, flowRaw * 1.4);
 
   // Lerp toward targets
-  emotions.anger   += (Math.min(1, angerTarget)   - emotions.anger)   * (angerTarget > emotions.anger ? 0.2 : rate); // fast attack, normal decay
+  emotions.anger   += (Math.min(1, angerTarget)   - emotions.anger)   * (angerTarget > emotions.anger ? 0.15 : rate); // was 0.2, slightly slower attack
   emotions.sadness += (Math.min(1, sadnessTarget) - emotions.sadness) * rate;
   emotions.fear    += (Math.min(1, fearTarget)    - emotions.fear)    * rate;
   emotions.craving += (Math.min(1, cravingTarget) - emotions.craving) * rate;
@@ -741,15 +741,25 @@ const bell = new Tone.PolySynth(Tone.Synth, {
 }).connect(bellReverb);
 
 // --- KICK DRUM: resonant 808-style sub kick ---
-const kickFilter = new Tone.Filter({ frequency: 100, type: "lowpass", rolloff: -24 }).connect(masterFilter);
-const kickDistortion = new Tone.Distortion({ distortion: 0, wet: 0 }).connect(kickFilter);
-const kickDrum = new Tone.MembraneSynth({
-  pitchDecay: 0.5,
-  octaves: 6,
+// --- KALIMBA: FM pluck, sparse in flow, chaotic + distorted in anger ---
+const kalimbaDistortion = new Tone.Distortion({ distortion: 0, wet: 0 }).connect(masterFilter);
+const kalimbaReverb = new Tone.Reverb({ decay: 2.5, wet: 0.35 }).connect(kalimbaDistortion);
+const kalimba = new Tone.FMSynth({
+  harmonicity: 8,
+  modulationIndex: 12,
   oscillator: { type: "sine" },
-  envelope: { attack: 0.001, decay: 0.8, sustain: 0, release: 1.5 },
-  volume: -12,
-}).connect(kickDistortion);
+  modulation: { type: "sine" },
+  envelope: { attack: 0.001, decay: 0.45, sustain: 0, release: 0.6 },
+  modulationEnvelope: { attack: 0.001, decay: 0.2, sustain: 0, release: 0.3 },
+  volume: -18,
+}).connect(kalimbaReverb);
+// Per-scene kalimba note pools (pentatonic in each tonal center)
+const KALIMBA_NOTES = [
+  ["C4","Eb4","F4","G4","Bb4","C5","Eb5"],    // Scene 0: Cm pentatonic
+  ["F4","Ab4","Bb4","C5","Eb5","F5"],          // Scene 1: Fm pentatonic
+  ["Eb4","F4","G4","Bb4","C5","Eb5"],          // Scene 2: Eb pentatonic
+  ["G3","Bb3","C4","D4","F4","G4","Bb4"],      // Scene 3: Gm pentatonic
+];
 
 // --- SHAKER: noise-based cymbal texture ---
 const shakerFilter = new Tone.Filter({ frequency: 7000, type: "bandpass", Q: 3 }).connect(masterFilter);
@@ -985,42 +995,34 @@ function startMusic() {
     }
   }, "2m").start(0);
 
-  // --- KICK: quarter-note grid, scene-aware patterns ---
-  let kickStep = 0;
+  // --- KALIMBA: sparse plucks in flow, rapid chaos in anger ---
+  let kalimbaStep = 0;
   new Tone.Loop((time) => {
-    const step = kickStep % 4;
-    let shouldHit = false;
-    let ghostHit = false;
+    const notes = KALIMBA_NOTES[currentScene] || KALIMBA_NOTES[0];
+    const step = kalimbaStep % 8;
 
-    if (emotions.anger > 0.4) {
-      // Agitated: irregular
-      shouldHit = Math.random() > (0.25 + emotions.anger * 0.25);
-    } else if (emotions.sadness > 0.5) {
-      // Stillness: sparse, only downbeat
-      shouldHit = (step === 0);
-    } else {
-      // Scene-based groove patterns
-      if (currentScene === 0) {
-        shouldHit = (step === 0 || step === 2);         // beats 1 and 3
-      } else if (currentScene === 1) {
-        shouldHit = (step === 1 || step === 3);         // backbeat 2 and 4
-      } else if (currentScene === 2) {
-        shouldHit = (step === 0 || step === 2);
-        ghostHit  = (step === 3);                       // ghost on 4
-      } else {
-        shouldHit = (step === 0 || step === 3);         // scene 3: 1 and 4
+    if (emotions.anger > 0.35) {
+      // Angry: rapid irregular hits, random notes, sometimes clusters
+      if (Math.random() < 0.3 + emotions.anger * 0.5) {
+        const note = notes[Math.floor(Math.random() * notes.length)];
+        kalimba.triggerAttackRelease(note, "32n", time, 0.3 + emotions.anger * 0.5);
+      }
+    } else if (emotions.flow > 0.2) {
+      // Flow: sparse, one note every 2-4 beats — breathing space
+      const sparsity = Math.max(1, Math.floor(6 - emotions.flow * 4)); // 6→2 steps between hits
+      if (step % sparsity === 0) {
+        const idx = step % notes.length;
+        kalimba.triggerAttackRelease(notes[idx], "8n", time, 0.15 + emotions.flow * 0.25);
+      }
+    } else if (emotions.sadness > 0.4) {
+      // Stillness: very rare, low velocity single pluck
+      if (step === 0 && Math.random() < 0.25) {
+        kalimba.triggerAttackRelease(notes[0], "4n", time, 0.1);
       }
     }
 
-    if (shouldHit) {
-      const vel = Math.min(1, 0.55 + emotions.flow * 0.3 - emotions.sadness * 0.15);
-      kickDrum.triggerAttackRelease("C1", "8n", time, vel);
-    }
-    if (ghostHit) {
-      kickDrum.triggerAttackRelease("C1", "16n", time, 0.18);
-    }
-    kickStep++;
-  }, "4n").start(0);
+    kalimbaStep++;
+  }, "8n").start(0);
 
   // --- SHAKER: 8th-note grid, probabilistic shimmer ---
   new Tone.Loop((time) => {
@@ -1119,29 +1121,30 @@ function updateMusic() {
   // Perc reverb: more in calm, dry in anger
   percReverb.wet.rampTo(emotions.anger > 0.3 ? 0.1 : 0.25 + emotions.flow * 0.2, 1);
 
-  // --- Kick drum: tonal character ---
-  kickDrum.envelope.decay = emotions.anger > 0.3
-    ? 0.12 + (1 - emotions.anger) * 0.2
-    : emotions.sadness > 0.4
-    ? 1.2 + emotions.sadness * 1.0
-    : 0.5 + emotions.flow * 0.4;
-  kickDrum.pitchDecay = emotions.anger > 0.3 ? 0.08
-                      : emotions.sadness > 0.4 ? 0.9
-                      : 0.5;
-  const kickVol = emotions.sadness > 0.4 ? -6 + emotions.sadness * 6
-                : emotions.flow > 0.3 ? -10 + emotions.flow * 5
-                : emotions.anger > 0.3 ? -14 + emotions.anger * 6
-                : -20;
-  kickDrum.volume.rampTo(Math.min(0, kickVol), 0.5);
-  kickFilter.frequency.rampTo(emotions.anger > 0.3
-    ? 150 + emotions.anger * 250
-    : 70 + emotions.flow * 50, 0.5);
-  // Kick distortion during stillness
-  const kickDistAmt = emotions.sadness > 0.5
-    ? (emotions.sadness - 0.5) * 0.5
-    : emotions.anger > 0.8 ? (emotions.anger - 0.8) * 1.5 : 0;
-  kickDistortion.distortion = Math.min(0.5, kickDistAmt);
-  kickDistortion.wet.rampTo(kickDistAmt > 0.05 ? Math.min(0.6, kickDistAmt * 2) : 0, 0.8);
+  // --- Kalimba: tonal character ---
+  // Decay: short + percussive in anger, long + resonant in flow
+  kalimba.envelope.decay = emotions.anger > 0.3
+    ? 0.08 + (1 - emotions.anger) * 0.1   // tight plucks
+    : 0.4 + emotions.flow * 0.3;           // warm sustain
+  // Harmonicity: detuned in anger (metallic), pure in flow
+  kalimba.harmonicity.rampTo(
+    emotions.anger > 0.3 ? 8 + emotions.anger * 6   // 8→14 (inharmonic)
+    : 8, 0.5);
+  // Modulation index: more overtones in anger
+  kalimba.modulationIndex.rampTo(
+    emotions.anger > 0.3 ? 12 + emotions.anger * 20  // harsh overtones
+    : 12 - emotions.flow * 4, 0.5);                   // cleaner in flow
+  // Volume
+  const kalimbaVol = emotions.anger > 0.3 ? -12 + emotions.anger * 6
+                   : emotions.flow > 0.2 ? -18 + emotions.flow * 6
+                   : emotions.sadness > 0.4 ? -24 : -22;
+  kalimba.volume.rampTo(Math.min(-6, kalimbaVol), 0.5);
+  // Reverb: lush in flow, dry in anger
+  kalimbaReverb.wet.rampTo(emotions.anger > 0.3 ? 0.1 : 0.3 + emotions.flow * 0.2, 0.8);
+  // Distortion: crunchy low-end in anger
+  const kalimbaDist = emotions.anger > 0.4 ? (emotions.anger - 0.4) * 0.8 : 0;
+  kalimbaDistortion.distortion = Math.min(0.6, kalimbaDist);
+  kalimbaDistortion.wet.rampTo(kalimbaDist > 0.05 ? Math.min(0.7, kalimbaDist * 2) : 0, 0.5);
 
   // --- Shaker: spectral character ---
   const shakerFreq = emotions.anger > 0.3
