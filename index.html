@@ -82,18 +82,18 @@
   }
 
   /* Emotion colors */
-  .color-anger { background: #ff4444; }
-  .color-sadness { background: #4466cc; }
-  .color-fear { background: #cc44cc; }
-  .color-craving { background: #ccaa22; }
-  .color-flow { background: #44dd88; }
+  .color-anger { background: #a05050; }
+  .color-sadness { background: #6070a0; }
+  .color-fear { background: #907090; }
+  .color-craving { background: #a09060; }
+  .color-flow { background: #509080; }
 
   /* Primitive colors */
-  .color-velocity { background: #888; }
-  .color-jerkiness { background: #aa6633; }
-  .color-contraction { background: #6688aa; }
-  .color-verticality { background: #88aa66; }
-  .color-symmetry { background: #aa8866; }
+  .color-velocity { background: rgba(180,190,200,0.6); }
+  .color-jerkiness { background: rgba(180,190,200,0.6); }
+  .color-contraction { background: rgba(180,190,200,0.6); }
+  .color-verticality { background: rgba(180,190,200,0.6); }
+  .color-symmetry { background: rgba(180,190,200,0.6); }
 
   #debug .fps-line {
     margin-top: 12px; font-size: 16px; color: #555;
@@ -251,60 +251,60 @@
 
 <!-- Top: raw primitives, bars grow DOWN -->
 <div id="primitives-bar" class="hud-bar">
-  <div class="hud-col" data-prim="velocity" style="--bar-color:#888">
+  <div class="hud-col" data-prim="velocity" style="--bar-color:rgba(180,190,200,0.6)">
     <div class="hud-label">velocity</div>
-    <div class="hud-track"><div class="hud-fill" style="background:#888; height:0%"></div></div>
+    <div class="hud-track"><div class="hud-fill" style="background:rgba(180,190,200,0.6); height:0%"></div></div>
   </div>
-  <div class="hud-col" data-prim="jerkiness" style="--bar-color:#aa6633">
+  <div class="hud-col" data-prim="jerkiness" style="--bar-color:rgba(180,190,200,0.6)">
     <div class="hud-label">jerkiness</div>
-    <div class="hud-track"><div class="hud-fill" style="background:#aa6633; height:0%"></div></div>
+    <div class="hud-track"><div class="hud-fill" style="background:rgba(180,190,200,0.6); height:0%"></div></div>
   </div>
-  <div class="hud-col" data-prim="contraction" style="--bar-color:#6688aa">
+  <div class="hud-col" data-prim="contraction" style="--bar-color:rgba(180,190,200,0.6)">
     <div class="hud-label">contract</div>
-    <div class="hud-track"><div class="hud-fill" style="background:#6688aa; height:0%"></div></div>
+    <div class="hud-track"><div class="hud-fill" style="background:rgba(180,190,200,0.6); height:0%"></div></div>
   </div>
-  <div class="hud-col" data-prim="verticality" style="--bar-color:#88aa66">
+  <div class="hud-col" data-prim="verticality" style="--bar-color:rgba(180,190,200,0.6)">
     <div class="hud-label">vertical</div>
-    <div class="hud-track"><div class="hud-fill" style="background:#88aa66; height:0%"></div></div>
+    <div class="hud-track"><div class="hud-fill" style="background:rgba(180,190,200,0.6); height:0%"></div></div>
   </div>
-  <div class="hud-col" data-prim="symmetry" style="--bar-color:#aa8866">
+  <div class="hud-col" data-prim="symmetry" style="--bar-color:rgba(180,190,200,0.6)">
     <div class="hud-label">symmetry</div>
-    <div class="hud-track"><div class="hud-fill" style="background:#aa8866; height:0%"></div></div>
+    <div class="hud-track"><div class="hud-fill" style="background:rgba(180,190,200,0.6); height:0%"></div></div>
   </div>
-  <div class="hud-col" data-prim="coherence" style="--bar-color:#8866aa">
+  <div class="hud-col" data-prim="coherence" style="--bar-color:rgba(180,190,200,0.6)">
     <div class="hud-label">coherence</div>
-    <div class="hud-track"><div class="hud-fill" style="background:#8866aa; height:0%"></div></div>
+    <div class="hud-track"><div class="hud-fill" style="background:rgba(180,190,200,0.6); height:0%"></div></div>
   </div>
-  <div class="hud-col" data-prim="ankleSpread" style="--bar-color:#66aaaa">
+  <div class="hud-col" data-prim="ankleSpread" style="--bar-color:rgba(180,190,200,0.6)">
     <div class="hud-label">ankles</div>
-    <div class="hud-track"><div class="hud-fill" style="background:#66aaaa; height:0%"></div></div>
+    <div class="hud-track"><div class="hud-fill" style="background:rgba(180,190,200,0.6); height:0%"></div></div>
   </div>
-  <div class="hud-col" data-prim="wristSpread" style="--bar-color:#aa88aa">
+  <div class="hud-col" data-prim="wristSpread" style="--bar-color:rgba(180,190,200,0.6)">
     <div class="hud-label">wrists</div>
-    <div class="hud-track"><div class="hud-fill" style="background:#aa88aa; height:0%"></div></div>
+    <div class="hud-track"><div class="hud-fill" style="background:rgba(180,190,200,0.6); height:0%"></div></div>
   </div>
 </div>
 
 <!-- Bottom: emotions, bars grow UP -->
 <div id="emotion-bar" class="hud-bar">
-  <div class="hud-col" data-emotion="anger" style="--bar-color:#ff4444">
-    <div class="hud-track"><div class="hud-fill" style="background:#ff4444; height:0%"></div></div>
+  <div class="hud-col" data-emotion="anger" style="--bar-color:#a05050">
+    <div class="hud-track"><div class="hud-fill" style="background:#a05050; height:0%"></div></div>
     <div class="hud-label">anger</div>
   </div>
-  <div class="hud-col" data-emotion="sadness" style="--bar-color:#4466cc">
-    <div class="hud-track"><div class="hud-fill" style="background:#4466cc; height:0%"></div></div>
+  <div class="hud-col" data-emotion="sadness" style="--bar-color:#6070a0">
+    <div class="hud-track"><div class="hud-fill" style="background:#6070a0; height:0%"></div></div>
     <div class="hud-label">stillness</div>
   </div>
-  <div class="hud-col" data-emotion="fear" style="--bar-color:#cc44cc">
-    <div class="hud-track"><div class="hud-fill" style="background:#cc44cc; height:0%"></div></div>
+  <div class="hud-col" data-emotion="fear" style="--bar-color:#907090">
+    <div class="hud-track"><div class="hud-fill" style="background:#907090; height:0%"></div></div>
     <div class="hud-label">fear</div>
   </div>
-  <div class="hud-col" data-emotion="craving" style="--bar-color:#ccaa22">
-    <div class="hud-track"><div class="hud-fill" style="background:#ccaa22; height:0%"></div></div>
+  <div class="hud-col" data-emotion="craving" style="--bar-color:#a09060">
+    <div class="hud-track"><div class="hud-fill" style="background:#a09060; height:0%"></div></div>
     <div class="hud-label">craving</div>
   </div>
-  <div class="hud-col" data-emotion="flow" style="--bar-color:#44dd88">
-    <div class="hud-track"><div class="hud-fill" style="background:#44dd88; height:0%"></div></div>
+  <div class="hud-col" data-emotion="flow" style="--bar-color:#509080">
+    <div class="hud-track"><div class="hud-fill" style="background:#509080; height:0%"></div></div>
     <div class="hud-label">flow</div>
   </div>
 </div>
@@ -611,7 +611,7 @@ let currentPrimitives = { velocity: 0, jerkiness: 0, contraction: 0.5, verticali
                           coherence: 0.5, ankleSpread: 0.5, wristSpread: 0.5 };
 
 function computeEmotions(p) {
-  const rate = 0.06; // lerp rate — was 0.1, slowed for smoother transitions while dancing
+  const rate = 0.08; // lerp rate — was 0.1, slowed for smoother transitions while dancing
 
   // --- Anger: fast OR jagged OR incoherent — very low threshold ---
   // Shaking violently in place should slam this to 1.0
@@ -663,7 +663,7 @@ function computeEmotions(p) {
   const flowTarget     = Math.min(1, flowRaw * 1.4);
 
   // Lerp toward targets
-  emotions.anger   += (Math.min(1, angerTarget)   - emotions.anger)   * (angerTarget > emotions.anger ? 0.09 : rate); // fast attack, proportional to base rate
+  emotions.anger   += (Math.min(1, angerTarget)   - emotions.anger)   * (angerTarget > emotions.anger ? 0.14 : rate); // fast attack, proportional to base rate
   emotions.sadness += (Math.min(1, sadnessTarget) - emotions.sadness) * rate;
   emotions.fear    += (Math.min(1, fearTarget)    - emotions.fear)    * rate;
   emotions.craving += (Math.min(1, cravingTarget) - emotions.craving) * rate;
@@ -718,7 +718,7 @@ function updateCloud() {
   }
   // Only switch dominant if new emotion exceeds current by margin
   const currentVal = emotionMap[currentDominant] || 0;
-  if (highestVal > currentVal + 0.08 || currentVal < 0.05) {
+  if (highestVal > currentVal + 0.05 || currentVal < 0.05) {
     currentDominant = highestName;
   }
 
@@ -1013,6 +1013,23 @@ function startMusic() {
     chordIndex++;
   }, "2m").start(0);
 
+  // --- ANGER PAD: dissonant churn at double rate ---
+  new Tone.Loop((time) => {
+    if (emotions.anger > 0.4) {
+      // Dissonant cluster: take current chord and shift some notes by a semitone
+      const chord = chords[chordIndex % chords.length];
+      const dissonant = chord.map(n => {
+        if (Math.random() < 0.5) {
+          // Shift up a semitone for dissonance
+          const note = Tone.Frequency(n).transpose(1).toNote();
+          return note;
+        }
+        return n;
+      });
+      pad.triggerAttackRelease(dissonant, "2n", time, 0.15 + emotions.anger * 0.25);
+    }
+  }, "1m").start("1m"); // offset by 1 measure so it fills the gaps
+
   // --- BASS: always present, character changes with sadness ---
   // Sub layer: steady root
   new Tone.Loop((time) => {
@@ -1089,10 +1106,10 @@ function startMusic() {
     } else if (emotions.anger > 0.3) {
       currentPhrase = null;
       // Dissonant chromatic stabs when agitated
-      if (Math.random() < emotions.anger * 0.4) {
+      if (Math.random() < 0.2 + emotions.anger * 0.6) {
         const CHROMATIC = ["C4","Db4","D4","Eb4","E4","F4","Gb4","G4","Ab4","A4","Bb4","B4"];
         const note = CHROMATIC[Math.floor(Math.random() * CHROMATIC.length)];
-        melody.triggerAttackRelease(note, "16n", time, 0.15 + emotions.anger * 0.3);
+        melody.triggerAttackRelease(note, "8n", time, 0.2 + emotions.anger * 0.4);
       }
     }
   }, "8n").start(0);
@@ -1156,7 +1173,7 @@ function startMusic() {
 
     if (emotions.anger > 0.3) {
       prob = 0.45 + emotions.anger * 0.45;
-      vel  = 0.35 + emotions.anger * 0.45;
+      vel  = 0.45 + emotions.anger * 0.5;
     } else if (emotions.flow > 0.2) {
       prob = 0.12 + emotions.flow * 0.25;  // was 0.06+0.16
       vel  = 0.15 + emotions.flow * 0.25;  // was 0.08+0.18
