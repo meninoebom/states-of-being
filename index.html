@@ -99,35 +99,58 @@
     margin-top: 12px; font-size: 16px; color: #555;
   }
 
-  /* --- Emotion Bar (presentation UI) --- */
+  /* --- Presentation Bars (top: primitives ↓, bottom: emotions ↑) --- */
+  .hud-bar {
+    position: fixed; left: 0; right: 0; z-index: 50;
+    display: flex; justify-content: center; gap: 6px;
+    padding: 0 20px; pointer-events: none;
+  }
+  #primitives-bar {
+    top: 0; height: 110px; align-items: flex-start;
+    background: linear-gradient(rgba(0,0,0,0.45) 60%, transparent);
+  }
   #emotion-bar {
-    position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
-    height: 70px; display: flex; justify-content: center; align-items: flex-end;
-    gap: 24px; padding: 0 40px 8px;
-    background: linear-gradient(transparent, rgba(0,0,0,0.5) 40%);
-    pointer-events: none;
+    bottom: 0; height: 110px; align-items: flex-end;
+    background: linear-gradient(transparent, rgba(0,0,0,0.45) 40%);
   }
-  .ebar {
-    display: flex; flex-direction: column; align-items: center; gap: 4px;
+  .hud-col {
+    display: flex; flex-direction: column; align-items: center;
+    flex: 1; max-width: 120px; min-width: 60px;
   }
-  .ebar-track {
-    width: 36px; height: 38px; background: rgba(255,255,255,0.06);
+  /* Top bar: label then bar growing DOWN */
+  #primitives-bar .hud-col { padding-top: 6px; }
+  #primitives-bar .hud-label { order: 0; margin-bottom: 4px; }
+  #primitives-bar .hud-track { order: 1; }
+  /* Bottom bar: bar growing UP then label */
+  #emotion-bar .hud-col { padding-bottom: 6px; }
+  #emotion-bar .hud-label { order: 1; margin-top: 4px; }
+  #emotion-bar .hud-track { order: 0; }
+
+  .hud-track {
+    width: 100%; height: 60px; background: rgba(255,255,255,0.04);
     border-radius: 4px; position: relative; overflow: hidden;
   }
-  .ebar-fill {
-    position: absolute; bottom: 0; width: 100%; border-radius: 4px;
-    transition: height 0.2s ease;
+  .hud-fill {
+    position: absolute; width: 100%; border-radius: 4px;
+    opacity: 0.7; transition: height 0.18s ease;
   }
-  .ebar-label {
-    font-family: monospace; font-size: 10px; text-transform: uppercase;
-    letter-spacing: 2px; color: #555;
-    transition: color 0.3s;
+  /* Primitives fill from TOP down */
+  #primitives-bar .hud-fill { top: 0; }
+  /* Emotions fill from BOTTOM up */
+  #emotion-bar .hud-fill { bottom: 0; }
+
+  .hud-label {
+    font-family: monospace; font-size: 13px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1.5px;
+    color: rgba(255,255,255,0.4); white-space: nowrap;
+    transition: color 0.3s, text-shadow 0.3s;
   }
-  .ebar.dominant .ebar-track {
-    box-shadow: 0 0 14px var(--ebar-color);
+  .hud-col.dominant .hud-label {
+    color: rgba(255,255,255,0.9);
+    text-shadow: 0 0 10px var(--bar-color);
   }
-  .ebar.dominant .ebar-label {
-    color: #ccc;
+  .hud-col.dominant .hud-track {
+    box-shadow: 0 0 16px var(--bar-color);
   }
 
   #video { display: none; }
@@ -226,26 +249,63 @@
   <div class="fps-line"><span id="d-fps">0</span> fps | tracking: <span id="d-tracking" style="color:#f44">no</span> | scene: <span id="d-scene">0</span> | armed: <span id="d-armed">no</span></div>
 </div>
 
-<div id="emotion-bar">
-  <div class="ebar" data-emotion="anger" style="--ebar-color:#ff4444">
-    <div class="ebar-track"><div class="ebar-fill" style="background:#ff4444; height:0%"></div></div>
-    <div class="ebar-label">anger</div>
+<!-- Top: raw primitives, bars grow DOWN -->
+<div id="primitives-bar" class="hud-bar">
+  <div class="hud-col" data-prim="velocity" style="--bar-color:#888">
+    <div class="hud-label">velocity</div>
+    <div class="hud-track"><div class="hud-fill" style="background:#888; height:0%"></div></div>
   </div>
-  <div class="ebar" data-emotion="sadness" style="--ebar-color:#4466cc">
-    <div class="ebar-track"><div class="ebar-fill" style="background:#4466cc; height:0%"></div></div>
-    <div class="ebar-label">still</div>
+  <div class="hud-col" data-prim="jerkiness" style="--bar-color:#aa6633">
+    <div class="hud-label">jerkiness</div>
+    <div class="hud-track"><div class="hud-fill" style="background:#aa6633; height:0%"></div></div>
   </div>
-  <div class="ebar" data-emotion="fear" style="--ebar-color:#cc44cc">
-    <div class="ebar-track"><div class="ebar-fill" style="background:#cc44cc; height:0%"></div></div>
-    <div class="ebar-label">fear</div>
+  <div class="hud-col" data-prim="contraction" style="--bar-color:#6688aa">
+    <div class="hud-label">contract</div>
+    <div class="hud-track"><div class="hud-fill" style="background:#6688aa; height:0%"></div></div>
   </div>
-  <div class="ebar" data-emotion="craving" style="--ebar-color:#ccaa22">
-    <div class="ebar-track"><div class="ebar-fill" style="background:#ccaa22; height:0%"></div></div>
-    <div class="ebar-label">craving</div>
+  <div class="hud-col" data-prim="verticality" style="--bar-color:#88aa66">
+    <div class="hud-label">vertical</div>
+    <div class="hud-track"><div class="hud-fill" style="background:#88aa66; height:0%"></div></div>
   </div>
-  <div class="ebar" data-emotion="flow" style="--ebar-color:#44dd88">
-    <div class="ebar-track"><div class="ebar-fill" style="background:#44dd88; height:0%"></div></div>
-    <div class="ebar-label">flow</div>
+  <div class="hud-col" data-prim="symmetry" style="--bar-color:#aa8866">
+    <div class="hud-label">symmetry</div>
+    <div class="hud-track"><div class="hud-fill" style="background:#aa8866; height:0%"></div></div>
+  </div>
+  <div class="hud-col" data-prim="coherence" style="--bar-color:#8866aa">
+    <div class="hud-label">coherence</div>
+    <div class="hud-track"><div class="hud-fill" style="background:#8866aa; height:0%"></div></div>
+  </div>
+  <div class="hud-col" data-prim="ankleSpread" style="--bar-color:#66aaaa">
+    <div class="hud-label">ankles</div>
+    <div class="hud-track"><div class="hud-fill" style="background:#66aaaa; height:0%"></div></div>
+  </div>
+  <div class="hud-col" data-prim="wristSpread" style="--bar-color:#aa88aa">
+    <div class="hud-label">wrists</div>
+    <div class="hud-track"><div class="hud-fill" style="background:#aa88aa; height:0%"></div></div>
+  </div>
+</div>
+
+<!-- Bottom: emotions, bars grow UP -->
+<div id="emotion-bar" class="hud-bar">
+  <div class="hud-col" data-emotion="anger" style="--bar-color:#ff4444">
+    <div class="hud-track"><div class="hud-fill" style="background:#ff4444; height:0%"></div></div>
+    <div class="hud-label">anger</div>
+  </div>
+  <div class="hud-col" data-emotion="sadness" style="--bar-color:#4466cc">
+    <div class="hud-track"><div class="hud-fill" style="background:#4466cc; height:0%"></div></div>
+    <div class="hud-label">stillness</div>
+  </div>
+  <div class="hud-col" data-emotion="fear" style="--bar-color:#cc44cc">
+    <div class="hud-track"><div class="hud-fill" style="background:#cc44cc; height:0%"></div></div>
+    <div class="hud-label">fear</div>
+  </div>
+  <div class="hud-col" data-emotion="craving" style="--bar-color:#ccaa22">
+    <div class="hud-track"><div class="hud-fill" style="background:#ccaa22; height:0%"></div></div>
+    <div class="hud-label">craving</div>
+  </div>
+  <div class="hud-col" data-emotion="flow" style="--bar-color:#44dd88">
+    <div class="hud-track"><div class="hud-fill" style="background:#44dd88; height:0%"></div></div>
+    <div class="hud-label">flow</div>
   </div>
 </div>
 
@@ -1362,18 +1422,28 @@ resizeOrbCanvas();
 // EMOTION BAR (presentation UI — always visible)
 // =============================================================================
 
-const ebarEls = document.querySelectorAll('#emotion-bar .ebar');
+const emotionCols = document.querySelectorAll('#emotion-bar .hud-col');
+const primCols = document.querySelectorAll('#primitives-bar .hud-col');
 function updateEmotionBar() {
-  ebarEls.forEach(el => {
+  // Bottom: emotions
+  emotionCols.forEach(el => {
     const name = el.dataset.emotion;
     const val = emotions[name] || 0;
-    el.querySelector('.ebar-fill').style.height = (val * 100) + '%';
+    el.querySelector('.hud-fill').style.height = (val * 100) + '%';
     if (name === currentDominant && val > 0.05) {
       el.classList.add('dominant');
     } else {
       el.classList.remove('dominant');
     }
   });
+  // Top: primitives
+  if (currentPrimitives) {
+    primCols.forEach(el => {
+      const name = el.dataset.prim;
+      const val = currentPrimitives[name] || 0;
+      el.querySelector('.hud-fill').style.height = (Math.min(1, val) * 100) + '%';
+    });
+  }
 }
 
 let lastOrbLandmarks = null;
