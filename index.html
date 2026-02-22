@@ -1,0 +1,1110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calm Mirror</title>
+<script src="https://cdn.jsdelivr.net/npm/tone@14.7.77/build/Tone.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0a0a0f;
+    color: #eee;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", monospace;
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+  }
+
+  #cloud {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    background: radial-gradient(ellipse at center, #1a1a2e 0%, #0a0a0f 100%);
+  }
+
+  /* --- Start Screen --- */
+  #start-screen {
+    position: fixed; inset: 0; z-index: 100;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: #0a0a0f;
+  }
+  #start-screen h1 {
+    font-size: 48px; font-weight: 200; letter-spacing: 12px;
+    margin-bottom: 12px; text-transform: uppercase;
+  }
+  #start-screen p {
+    font-size: 14px; color: #666; margin-bottom: 48px;
+    max-width: 400px; text-align: center; line-height: 1.6;
+  }
+  #start-btn {
+    font-size: 16px; padding: 16px 48px; background: transparent;
+    color: #888; border: 1px solid #333; border-radius: 48px;
+    cursor: pointer; letter-spacing: 4px; text-transform: uppercase;
+    transition: all 0.3s;
+  }
+  #start-btn:hover { color: #fff; border-color: #666; }
+
+  /* --- Debug Overlay --- */
+  #debug {
+    position: fixed; top: 20px; left: 20px; z-index: 50;
+    font-family: monospace; color: #888;
+    line-height: 1.3; display: none; pointer-events: none;
+    background: rgba(0,0,0,0.7); padding: 20px 28px; border-radius: 12px;
+    min-width: 420px;
+  }
+
+  #debug .section-label {
+    font-size: 16px; text-transform: uppercase; letter-spacing: 3px;
+    color: #555; margin-top: 16px; margin-bottom: 8px;
+  }
+  #debug .section-label:first-child { margin-top: 0; }
+
+  #debug .meter-row {
+    display: flex; align-items: center; gap: 12px; height: 36px;
+  }
+  #debug .meter-label {
+    width: 120px; text-align: right; font-size: 22px; color: #666;
+    font-weight: 600;
+  }
+  #debug .meter-track {
+    flex: 1; height: 14px; background: #1a1a1a; border-radius: 7px;
+    overflow: hidden; position: relative;
+  }
+  #debug .meter-fill {
+    height: 100%; border-radius: 7px; transition: width 0.15s ease;
+    min-width: 2px;
+  }
+  #debug .meter-val {
+    width: 55px; font-size: 22px; color: #888; text-align: left;
+    font-weight: 600;
+  }
+
+  /* Emotion colors */
+  .color-anger { background: #ff4444; }
+  .color-sadness { background: #4466cc; }
+  .color-fear { background: #cc44cc; }
+  .color-craving { background: #ccaa22; }
+  .color-flow { background: #44dd88; }
+
+  /* Primitive colors */
+  .color-velocity { background: #888; }
+  .color-jerkiness { background: #aa6633; }
+  .color-contraction { background: #6688aa; }
+  .color-verticality { background: #88aa66; }
+  .color-symmetry { background: #aa8866; }
+
+  #debug .fps-line {
+    margin-top: 12px; font-size: 16px; color: #555;
+  }
+
+  #video { display: none; }
+
+  /* --- Orb Canvas --- */
+  #orbs {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+
+<div id="cloud"></div>
+<canvas id="orbs"></canvas>
+
+<div id="start-screen">
+  <h1>Calm Mirror</h1>
+  <p>Move in front of the camera. The music mirrors your state.
+     Find the calm place where everything sounds beautiful.</p>
+  <button id="start-btn" onclick="startExperience()">Begin</button>
+</div>
+
+<div id="debug">
+  <div class="section-label">emotions</div>
+  <div class="meter-row">
+    <span class="meter-label">anger</span>
+    <div class="meter-track"><div class="meter-fill color-anger" id="m-anger" style="width:0%"></div></div>
+    <span class="meter-val" id="v-anger">0.00</span>
+  </div>
+  <div class="meter-row">
+    <span class="meter-label">sadness</span>
+    <div class="meter-track"><div class="meter-fill color-sadness" id="m-sadness" style="width:0%"></div></div>
+    <span class="meter-val" id="v-sadness">0.00</span>
+  </div>
+  <div class="meter-row">
+    <span class="meter-label">fear</span>
+    <div class="meter-track"><div class="meter-fill color-fear" id="m-fear" style="width:0%"></div></div>
+    <span class="meter-val" id="v-fear">0.00</span>
+  </div>
+  <div class="meter-row">
+    <span class="meter-label">craving</span>
+    <div class="meter-track"><div class="meter-fill color-craving" id="m-craving" style="width:0%"></div></div>
+    <span class="meter-val" id="v-craving">0.00</span>
+  </div>
+  <div class="meter-row">
+    <span class="meter-label" style="color:#4d8">flow</span>
+    <div class="meter-track"><div class="meter-fill color-flow" id="m-flow" style="width:0%"></div></div>
+    <span class="meter-val" id="v-flow" style="color:#4d8">0.00</span>
+  </div>
+
+  <div class="section-label">raw primitives</div>
+  <div class="meter-row">
+    <span class="meter-label">velocity</span>
+    <div class="meter-track"><div class="meter-fill color-velocity" id="m-velocity" style="width:0%"></div></div>
+    <span class="meter-val" id="v-velocity">0.00</span>
+  </div>
+  <div class="meter-row">
+    <span class="meter-label">jerkiness</span>
+    <div class="meter-track"><div class="meter-fill color-jerkiness" id="m-jerkiness" style="width:0%"></div></div>
+    <span class="meter-val" id="v-jerkiness">0.00</span>
+  </div>
+  <div class="meter-row">
+    <span class="meter-label">contraction</span>
+    <div class="meter-track"><div class="meter-fill color-contraction" id="m-contraction" style="width:0%"></div></div>
+    <span class="meter-val" id="v-contraction">0.00</span>
+  </div>
+  <div class="meter-row">
+    <span class="meter-label">verticality</span>
+    <div class="meter-track"><div class="meter-fill color-verticality" id="m-verticality" style="width:0%"></div></div>
+    <span class="meter-val" id="v-verticality">0.00</span>
+  </div>
+  <div class="meter-row">
+    <span class="meter-label">symmetry</span>
+    <div class="meter-track"><div class="meter-fill color-symmetry" id="m-symmetry" style="width:0%"></div></div>
+    <span class="meter-val" id="v-symmetry">0.00</span>
+  </div>
+
+  <div class="fps-line"><span id="d-fps">0</span> fps | tracking: <span id="d-tracking" style="color:#f44">no</span></div>
+</div>
+
+<video id="video" playsinline autoplay muted></video>
+
+<script type="module">
+import {
+  PoseLandmarker,
+  FilesetResolver,
+} from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
+
+// =============================================================================
+// ONE-EURO FILTER (from ralf/mediapipe)
+// =============================================================================
+
+class LowPassFilter {
+  constructor() { this.y = null; this.s = null; }
+  filter(value, alpha) {
+    if (this.y === null) { this.s = value; }
+    else { this.s = alpha * value + (1 - alpha) * this.s; }
+    this.y = value;
+    return this.s;
+  }
+}
+
+class OneEuroFilter {
+  constructor(minCutoff = 1.0, beta = 0.007, dCutoff = 1.0) {
+    this.minCutoff = minCutoff; this.beta = beta; this.dCutoff = dCutoff;
+    this.xFilter = new LowPassFilter(); this.dxFilter = new LowPassFilter();
+    this.lastTime = null;
+  }
+  alpha(cutoff, dt) {
+    return 1.0 / (1.0 + 1.0 / (2 * Math.PI * cutoff) / dt);
+  }
+  filter(value, timestamp) {
+    if (this.lastTime === null) {
+      this.lastTime = timestamp;
+      return this.xFilter.filter(value, 1.0);
+    }
+    const dt = Math.max(timestamp - this.lastTime, 1e-6);
+    this.lastTime = timestamp;
+    const dValue = (value - (this.xFilter.s ?? value)) / dt;
+    const edValue = this.dxFilter.filter(dValue, this.alpha(this.dCutoff, dt));
+    const cutoff = this.minCutoff + this.beta * Math.abs(edValue);
+    return this.xFilter.filter(value, this.alpha(cutoff, dt));
+  }
+}
+
+const landmarkFilters = Array.from({ length: 33 }, () => ({
+  x: new OneEuroFilter(1.0, 0.007, 1.0),
+  y: new OneEuroFilter(1.0, 0.007, 1.0),
+}));
+
+function smoothLandmarks(landmarks, timestamp) {
+  return landmarks.map((lm, i) => ({
+    x: landmarkFilters[i].x.filter(lm.x, timestamp),
+    y: landmarkFilters[i].y.filter(lm.y, timestamp),
+    visibility: lm.visibility,
+  }));
+}
+
+// =============================================================================
+// MOVEMENT ANALYZER — Kinematic Primitives with Adaptive Normalization
+// =============================================================================
+//
+// Architecture:
+//   Frame data → per-joint velocity → acceleration → jerk (3rd derivative)
+//   Frame data → joint-pair distances → contraction, verticality
+//   All raw values → AdaptiveRange → normalized 0-1
+//
+// The adaptive range slowly expands to your actual movement range and gently
+// contracts back, so thresholds are always relative to YOUR body and distance.
+
+const LEFT_JOINTS = [11, 13, 15, 23, 25, 27];
+const RIGHT_JOINTS = [12, 14, 16, 24, 26, 28];
+const BODY_JOINTS = [...LEFT_JOINTS, ...RIGHT_JOINTS];
+const WINDOW = 30; // ~1 second at 30fps
+
+// --- Adaptive Range Normalizer ---
+// Tracks observed min/max of a signal and normalizes new values to 0-1.
+// Range expands instantly on new extremes, contracts slowly over time.
+class AdaptiveRange {
+  constructor(initialMin = 0, initialMax = 0.001, decayRate = 0.998) {
+    this.min = initialMin;
+    this.max = initialMax;
+    this.decayRate = decayRate; // how fast the range contracts (closer to 1 = slower)
+  }
+
+  normalize(value) {
+    // Expand range instantly
+    if (value < this.min) this.min = value;
+    if (value > this.max) this.max = value;
+
+    // Slowly contract range toward recent values (prevents getting stuck on outliers)
+    const mid = (this.min + this.max) / 2;
+    this.min += (mid - this.min) * (1 - this.decayRate);
+    this.max -= (this.max - mid) * (1 - this.decayRate);
+
+    // Prevent division by zero
+    const range = this.max - this.min;
+    if (range < 0.0001) return 0.5;
+
+    return Math.max(0, Math.min(1, (value - this.min) / range));
+  }
+}
+
+// One normalizer per primitive — each learns its own range
+const ranges = {
+  velocity:    new AdaptiveRange(0, 0.005),
+  accel:       new AdaptiveRange(0, 0.002),
+  jerk:        new AdaptiveRange(0, 0.001),
+  contraction: new AdaptiveRange(0.01, 0.15),
+  verticality: new AdaptiveRange(0.02, 0.2),
+  symmetry:    new AdaptiveRange(0, 1, 0.999), // slower decay — symmetry is stable
+  limbExtension: new AdaptiveRange(0, 0.3),
+};
+
+// --- History buffers ---
+let prevLandmarks = null;
+let prevPrevLandmarks = null;
+const velocityHistory = [];    // per-frame mean velocity
+const accelHistory = [];       // per-frame mean acceleration
+const jerkHistory = [];        // per-frame mean jerk
+const leftVelHistory = [];
+const rightVelHistory = [];
+let sadnessDuration = 0;
+
+// --- Helper: distance between two landmarks ---
+function dist(a, b) {
+  return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
+}
+
+// --- Helper: mean of array ---
+function mean(arr) {
+  return arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
+}
+
+// --- Helper: per-joint velocities for a set of joints ---
+function jointVelocities(landmarks, prev, joints) {
+  const vels = [];
+  for (const idx of joints) {
+    if (landmarks[idx].visibility > 0.3 && prev[idx].visibility > 0.3) {
+      vels.push(dist(landmarks[idx], prev[idx]));
+    }
+  }
+  return vels;
+}
+
+function computePrimitives(landmarks) {
+  const out = { velocity: 0, jerkiness: 0, contraction: 0.5, verticality: 0.5, symmetry: 0.5 };
+
+  // =====================================================================
+  // SHAPE PRIMITIVES (no history needed)
+  // =====================================================================
+
+  // --- Contraction: specific joint-pair distances ---
+  // Wrist-to-hip (arms pulled in vs reaching out)
+  const lWristHip = (landmarks[15].visibility > 0.3 && landmarks[23].visibility > 0.3)
+    ? dist(landmarks[15], landmarks[23]) : null;
+  const rWristHip = (landmarks[16].visibility > 0.3 && landmarks[24].visibility > 0.3)
+    ? dist(landmarks[16], landmarks[24]) : null;
+  // Shoulder width
+  const shoulderWidth = (landmarks[11].visibility > 0.3 && landmarks[12].visibility > 0.3)
+    ? dist(landmarks[11], landmarks[12]) : null;
+
+  if (lWristHip !== null || rWristHip !== null) {
+    const avgReach = mean([lWristHip, rWristHip].filter(v => v !== null));
+    const rawContraction = shoulderWidth !== null
+      ? avgReach + shoulderWidth  // combined: limb reach + shoulder openness
+      : avgReach;
+    // Normalize adaptively — low value = contracted, high = open
+    out.contraction = 1 - ranges.contraction.normalize(rawContraction);
+  }
+
+  // --- Verticality: head height relative to hip center ---
+  const nose = landmarks[0];
+  const lHip = landmarks[23], rHip = landmarks[24];
+  if (nose.visibility > 0.3 && lHip.visibility > 0.3 && rHip.visibility > 0.3) {
+    const hipMidY = (lHip.y + rHip.y) / 2;
+    const headDrop = hipMidY - nose.y; // larger = more upright (y increases downward)
+    out.verticality = ranges.verticality.normalize(headDrop);
+  }
+
+  // --- Limb Extension: how far wrists/ankles are from body center ---
+  const centerX = (landmarks[11].x + landmarks[12].x + landmarks[23].x + landmarks[24].x) / 4;
+  const centerY = (landmarks[11].y + landmarks[12].y + landmarks[23].y + landmarks[24].y) / 4;
+  const extremities = [15, 16, 27, 28]; // wrists and ankles
+  const extDists = extremities
+    .filter(i => landmarks[i].visibility > 0.3)
+    .map(i => Math.sqrt((landmarks[i].x - centerX) ** 2 + (landmarks[i].y - centerY) ** 2));
+  if (extDists.length > 0) {
+    // Not used as a top-level primitive yet, but available for emotions
+    out._limbExtension = ranges.limbExtension.normalize(mean(extDists));
+  }
+
+  // =====================================================================
+  // KINEMATIC PRIMITIVES (need 1-3 frames of history)
+  // =====================================================================
+
+  if (!prevLandmarks) {
+    prevLandmarks = landmarks;
+    return out;
+  }
+
+  // --- Per-joint velocity this frame ---
+  const leftVels = jointVelocities(landmarks, prevLandmarks, LEFT_JOINTS);
+  const rightVels = jointVelocities(landmarks, prevLandmarks, RIGHT_JOINTS);
+  const allVels = [...leftVels, ...rightVels];
+  const frameVel = mean(allVels);
+
+  // --- Per-joint acceleration (needs 2 frames) ---
+  let frameAccel = 0;
+  if (prevPrevLandmarks) {
+    const prevVels = jointVelocities(prevLandmarks, prevPrevLandmarks, BODY_JOINTS);
+    if (prevVels.length > 0 && allVels.length > 0) {
+      frameAccel = Math.abs(mean(allVels) - mean(prevVels));
+    }
+  }
+
+  // --- Per-frame jerk (change in acceleration, needs 3+ frames) ---
+  let frameJerk = 0;
+  if (accelHistory.length > 0) {
+    frameJerk = Math.abs(frameAccel - accelHistory[accelHistory.length - 1]);
+  }
+
+  // Update history
+  prevPrevLandmarks = prevLandmarks;
+  prevLandmarks = landmarks;
+
+  velocityHistory.push(frameVel);
+  accelHistory.push(frameAccel);
+  jerkHistory.push(frameJerk);
+  leftVelHistory.push(mean(leftVels));
+  rightVelHistory.push(mean(rightVels));
+
+  // Trim to window
+  for (const h of [velocityHistory, accelHistory, jerkHistory, leftVelHistory, rightVelHistory]) {
+    while (h.length > WINDOW) h.shift();
+  }
+
+  // --- Velocity (adaptive) ---
+  const meanVel = mean(velocityHistory);
+  out.velocity = ranges.velocity.normalize(meanVel);
+
+  // --- Jerkiness: mean jerk over window (THE key smoothness signal) ---
+  // High jerk = shaking, sudden stops. Low jerk = flowing, tai-chi-like.
+  if (jerkHistory.length > 3) {
+    const meanJerk = mean(jerkHistory);
+    out.jerkiness = ranges.jerk.normalize(meanJerk);
+  }
+
+  // --- Symmetry: left/right velocity balance ---
+  if (leftVelHistory.length > 5) {
+    const mL = mean(leftVelHistory);
+    const mR = mean(rightVelHistory);
+    const maxM = Math.max(mL, mR, 0.0001);
+    out.symmetry = Math.min(mL, mR) / maxM;
+  }
+
+  return out;
+}
+
+// =============================================================================
+// EMOTION COMPUTATION — From primitives to feelings
+// =============================================================================
+//
+// Each emotion is a weighted combination of primitives with a gate condition.
+// Gate conditions ensure emotions only fire when their signature is present,
+// preventing everything from reading 0.5 all the time.
+
+const emotions = { anger: 0, sadness: 0, fear: 0, craving: 0, flow: 0 };
+
+function computeEmotions(p) {
+  const rate = 0.1; // lerp rate — slightly faster for responsiveness
+
+  // --- Anger: fast OR jagged — very low threshold ---
+  // Shaking violently in place should slam this to 1.0
+  const angerRaw = p.velocity * 0.25 + p.jerkiness * 0.55 + (1 - p.symmetry) * 0.2;
+  const angerGate = Math.max(
+    smoothstep(0.08, 0.25, p.velocity),   // low bar for speed
+    smoothstep(0.1, 0.3, p.jerkiness)     // very low bar for jerkiness
+  );
+  const angerTarget = angerRaw * angerGate * 1.6; // strong amplifier
+
+  // --- Sadness: still AND contracted AND slumped ---
+  // Gate: velocity must be LOW. If you're moving, you're not sad in this model.
+  const sadRaw = (1 - p.velocity) * 0.3 + p.contraction * 0.4 + (1 - p.verticality) * 0.3;
+  const sadGate = smoothstep(0.4, 0.1, p.velocity); // ramps on as velocity drops below 0.4
+  const sadnessTarget = sadRaw * sadGate;
+
+  // --- Fear: high jerk but NOT necessarily high velocity ---
+  // The signature is rapid small oscillations — shaking, trembling, flinching
+  // Gate: jerkiness must be high relative to velocity (lots of direction changes per unit of speed)
+  const jerkToVelRatio = p.velocity > 0.05 ? p.jerkiness / Math.max(0.1, p.velocity) : p.jerkiness;
+  const fearRaw = p.jerkiness * 0.5 + Math.min(1, jerkToVelRatio) * 0.3 + (1 - p.symmetry) * 0.2;
+  const fearGate = smoothstep(0.3, 0.7, p.jerkiness); // needs actual jerkiness
+  const fearTarget = fearRaw * fearGate;
+
+  // --- Craving: moderate steady movement, reaching outward, not quite flowing ---
+  // Missing some quality of flow (symmetry or verticality)
+  const ext = p._limbExtension || 0.5;
+  const cravingRaw = smoothstep(0.15, 0.5, p.velocity) * 0.25 +
+                     (1 - p.jerkiness) * 0.2 +
+                     ext * 0.3 +
+                     (1 - p.symmetry) * 0.25;
+  const cravingGate = smoothstep(0.15, 0.4, p.velocity) * smoothstep(0.6, 0.3, p.jerkiness);
+  const cravingTarget = cravingRaw * cravingGate * 0.8;
+
+  // --- Flow: medium velocity + low jerk + open + upright + symmetric ---
+  // This is multiplicative — ALL conditions must be met. Missing any one kills flow.
+  const flowTarget = Math.min(1,
+    smoothstep(0.08, 0.3, p.velocity) *         // moving (even slow movement counts)
+    smoothstep(0.5, 0.1, p.jerkiness) *          // smooth (jerk LOW)
+    smoothstep(0.3, 0.0, p.contraction) *         // open (contraction LOW)
+    smoothstep(0.2, 0.7, p.verticality) *         // upright
+    smoothstep(0.3, 0.7, p.symmetry)              // balanced
+  ) * 1.8; // scale up slightly so it's achievable
+
+  // Lerp toward targets
+  emotions.anger   += (Math.min(1, angerTarget)   - emotions.anger)   * (angerTarget > emotions.anger ? 0.2 : rate); // fast attack, normal decay
+  emotions.sadness += (Math.min(1, sadnessTarget) - emotions.sadness) * rate;
+  emotions.fear    += (Math.min(1, fearTarget)    - emotions.fear)    * rate;
+  emotions.craving += (Math.min(1, cravingTarget) - emotions.craving) * rate;
+  emotions.flow    += (Math.min(1, flowTarget)    - emotions.flow)    * rate;
+
+  // Track sustained sadness for bass buildup
+  if (emotions.sadness > 0.4) {
+    sadnessDuration++;
+  } else {
+    sadnessDuration = Math.max(0, sadnessDuration - 3);
+  }
+}
+
+function smoothstep(edge0, edge1, x) {
+  const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
+  return t * t * (3 - 2 * t);
+}
+
+// =============================================================================
+// COLOR CLOUD
+// =============================================================================
+
+const cloud = document.getElementById("cloud");
+let currentHue = 260, currentSat = 20, currentLight = 8;
+
+function updateCloud() {
+  let targetHue, targetSat, targetLight;
+
+  // Dominant emotion drives color
+  const dominant = Math.max(emotions.anger, emotions.sadness, emotions.fear, emotions.craving, emotions.flow);
+
+  if (emotions.flow > 0.5 && emotions.flow >= dominant * 0.8) {
+    // Flow: warm blues, golds, soft oranges
+    const t = emotions.flow;
+    targetHue = 40 + t * 20; // 40-60 (golden)
+    targetSat = 40 + t * 35;
+    targetLight = 20 + t * 20;
+  } else if (emotions.sadness >= dominant * 0.8) {
+    // Sadness: dark, heavy, deep blue-purple
+    targetHue = 250;
+    targetSat = 20 + emotions.sadness * 15;
+    targetLight = 4 + (1 - emotions.sadness) * 10;
+  } else if (emotions.anger >= dominant * 0.8) {
+    // Anger: reds, hot
+    targetHue = 0;
+    targetSat = 50 + emotions.anger * 40;
+    targetLight = 12 + emotions.anger * 18;
+  } else if (emotions.fear >= dominant * 0.8) {
+    // Fear: magenta, electric
+    targetHue = 300;
+    targetSat = 40 + emotions.fear * 40;
+    targetLight = 10 + emotions.fear * 15;
+  } else if (emotions.craving >= dominant * 0.8) {
+    // Craving: amber, restless
+    targetHue = 35;
+    targetSat = 50 + emotions.craving * 30;
+    targetLight = 12 + emotions.craving * 15;
+  } else {
+    // Mixed / neutral
+    targetHue = 220;
+    targetSat = 15;
+    targetLight = 10;
+  }
+
+  const rate = 0.025;
+  currentHue += (targetHue - currentHue) * rate;
+  currentSat += (targetSat - currentSat) * rate;
+  currentLight += (targetLight - currentLight) * rate;
+
+  const pulse = Math.sin(Date.now() / 2000) * 1.5;
+  const agitationFlicker = emotions.anger > 0.5 ? (Math.random() - 0.5) * emotions.anger * 4 : 0;
+  const h = currentHue;
+  const s = Math.max(0, Math.min(100, currentSat));
+  const l = Math.max(2, Math.min(50, currentLight + pulse + agitationFlicker));
+
+  const inner = `hsl(${h}, ${s}%, ${l + 10}%)`;
+  const outer = `hsl(${h}, ${Math.max(0, s - 20)}%, ${Math.max(2, l - 6)}%)`;
+  cloud.style.background = `radial-gradient(ellipse at center, ${inner} 0%, ${outer} 70%, #0a0a0f 100%)`;
+}
+
+// =============================================================================
+// TONE.JS MUSIC ENGINE
+// =============================================================================
+//
+// Architecture:
+//   Master bus: masterFilter → masterReverb → masterGain → destination
+//   Each voice connects to masterFilter.
+//   Voices: bass, pad, perc, melody, fearSynth
+//   updateMusic() adjusts parameters every frame.
+//   Loops in startMusic() handle note scheduling.
+
+let musicStarted = false;
+
+// --- Master bus ---
+const masterGain = new Tone.Gain(0.7).toDestination();
+const masterReverb = new Tone.Reverb({ decay: 4, wet: 0.3, preDelay: 0.02 }).connect(masterGain);
+const masterFilter = new Tone.Filter({ frequency: 5000, type: "lowpass", rolloff: -12 }).connect(masterReverb);
+
+// --- BASS (sadness channel) ---
+// Two layers: sub sine for weight, triangle for growl when oppressive
+const bassSub = new Tone.MonoSynth({
+  oscillator: { type: "sine" },
+  envelope: { attack: 0.5, decay: 1.5, sustain: 0.95, release: 3.0 },
+  filterEnvelope: { attack: 0.2, decay: 0.5, sustain: 0.9, release: 1.5, baseFrequency: 30, octaves: 1 },
+  volume: -14,
+}).connect(masterFilter);
+
+const bassGrowl = new Tone.MonoSynth({
+  oscillator: { type: "sawtooth8" },
+  envelope: { attack: 1.0, decay: 2.0, sustain: 0.8, release: 3.0 },
+  filterEnvelope: { attack: 0.5, decay: 1.0, sustain: 0.5, release: 2.0, baseFrequency: 40, octaves: 2.5 },
+  volume: -30, // starts quiet, gets loud with sustained sadness
+}).connect(masterFilter);
+
+// --- PAD (flow/harmony channel) ---
+const pad = new Tone.PolySynth(Tone.Synth, {
+  oscillator: { type: "sine4" },
+  envelope: { attack: 1.5, decay: 2, sustain: 0.6, release: 3 },
+  volume: -14,
+}).connect(masterFilter);
+
+// --- MELODY (craving channel) ---
+const melody = new Tone.Synth({
+  oscillator: { type: "sine" },
+  envelope: { attack: 0.3, decay: 0.6, sustain: 0.3, release: 1.5 },
+  volume: -18,
+}).connect(masterFilter);
+
+// --- PERCUSSION: wood block (MembraneSynth with short pitched decay) ---
+const percFilter = new Tone.Filter({ frequency: 2000, type: "bandpass", Q: 2 }).connect(masterFilter);
+const percReverb = new Tone.Reverb({ decay: 1.5, wet: 0.3 }).connect(percFilter);
+const perc = new Tone.MembraneSynth({
+  pitchDecay: 0.008,
+  octaves: 2,
+  oscillator: { type: "sine" },
+  envelope: { attack: 0.001, decay: 0.08, sustain: 0, release: 0.04 },
+  volume: -12,
+}).connect(percReverb);
+
+// --- STILLNESS DRONE: uncomfortable sawtooth that builds when not moving ---
+const stillnessFilter = new Tone.Filter({ frequency: 200, type: "lowpass", rolloff: -12 }).connect(masterFilter);
+const stillnessDrone = new Tone.Synth({
+  oscillator: { type: "sawtooth" },
+  envelope: { attack: 3, decay: 0, sustain: 1, release: 4 },
+  volume: -60, // starts inaudible
+}).connect(stillnessFilter);
+let stillnessActive = false;
+let stillnessIntensity = 0; // 0-1, builds over time when still
+
+// --- FEAR SYNTH (high dissonant tones, tremolo) ---
+const fearLFO = new Tone.LFO("8n", 0.3, 1).start();
+const fearSynth = new Tone.Synth({
+  oscillator: { type: "sawtooth4" },
+  envelope: { attack: 0.05, decay: 0.3, sustain: 0.2, release: 0.5 },
+  volume: -28,
+}).connect(masterFilter);
+fearLFO.connect(fearSynth.volume);
+
+// =============================================================================
+// CHORD & NOTE POOLS
+// =============================================================================
+
+const CALM_CHORDS = [
+  ["C3", "Eb3", "G3", "Bb3"],      // Cm7
+  ["F3", "Ab3", "C4", "Eb4"],      // Fm7
+  ["Bb2", "D3", "F3", "Ab3"],      // Bbdom7
+  ["Eb3", "G3", "Bb3", "D4"],      // EbMaj7
+  ["Ab2", "C3", "Eb3", "G3"],      // AbMaj7
+];
+
+const AGITATED_CHORDS = [
+  ["C3", "Db3", "Gb3", "B3"],
+  ["D3", "Ab3", "A3", "Eb4"],
+  ["E3", "F3", "Bb3", "B3"],
+  ["Gb3", "G3", "C4", "Db4"],
+];
+
+const SAD_BASS_NOTES = ["C1", "Bb0", "Ab0", "Eb1", "F1"];
+const CRAVING_NOTES = ["G3", "Ab3", "Bb3", "C4", "D4", "Eb4", "F4"];
+const FEAR_NOTES = ["B5", "C6", "Db6", "E5", "F5", "Gb5"];
+const CONSONANT_SCALE = ["C3", "D3", "Eb3", "F3", "G3", "Ab3", "Bb3", "C4", "D4", "Eb4", "F4", "G4"];
+
+let chordIndex = 0;
+
+// =============================================================================
+// MUSIC SCHEDULING
+// =============================================================================
+
+function startMusic() {
+  if (musicStarted) return;
+  musicStarted = true;
+
+  Tone.Transport.bpm.value = 78;
+
+  // --- PAD: chords every 2 bars ---
+  new Tone.Loop((time) => {
+    const chords = emotions.anger > 0.3 ? AGITATED_CHORDS : CALM_CHORDS;
+    const chord = chords[chordIndex % chords.length];
+    pad.triggerAttackRelease(chord, "2m", time, 0.3 + emotions.flow * 0.4);
+    chordIndex++;
+  }, "2m").start(0);
+
+  // --- BASS: always present, character changes with sadness ---
+  // Sub layer: steady root
+  new Tone.Loop((time) => {
+    const note = SAD_BASS_NOTES[Math.floor(Math.random() * SAD_BASS_NOTES.length)];
+    const vel = 0.2 + emotions.sadness * 0.5;
+    bassSub.triggerAttackRelease(note, "1m", time, Math.min(1, vel));
+  }, "1m").start(0);
+
+  // Growl layer: only emerges with sustained sadness
+  new Tone.Loop((time) => {
+    if (emotions.sadness > 0.3) {
+      const note = SAD_BASS_NOTES[Math.floor(Math.random() * SAD_BASS_NOTES.length)];
+      bassGrowl.triggerAttackRelease(note, "2n", time, Math.min(1, emotions.sadness * 0.7));
+    }
+  }, "2n").start(0);
+
+  // --- PERCUSSION: wood block pulse ---
+  // Regular steady 8th notes. Pitch varies with state. Irregular when agitated.
+  const WOOD_PITCH_CALM = "G4";    // warm mid tone
+  const WOOD_PITCH_ANGRY = "C5";   // higher, more piercing
+  new Tone.Loop((time) => {
+    const pitch = emotions.anger > 0.3 ? WOOD_PITCH_ANGRY : WOOD_PITCH_CALM;
+    const baseVel = 0.25 + emotions.flow * 0.1;
+
+    // When agitated: skip some beats randomly AND add off-grid ghost hits
+    if (emotions.anger > 0.2) {
+      // Main hit: sometimes skip for irregularity
+      if (Math.random() > emotions.anger * 0.3) {
+        perc.triggerAttackRelease(pitch, "32n", time, baseVel);
+      }
+      // Ghost hits at random offsets
+      const extraHits = Math.floor(emotions.anger * 3);
+      for (let i = 0; i < extraHits; i++) {
+        const offset = (i + 1) * (0.02 + Math.random() * 0.05);
+        perc.triggerAttackRelease(pitch, "64n", time + offset, 0.1 + Math.random() * 0.2);
+      }
+    } else {
+      // Calm/normal: steady pulse
+      perc.triggerAttackRelease(pitch, "32n", time, baseVel);
+    }
+  }, "8n").start(0);
+
+  // --- MELODY: flow (consonant), craving (reaching), anger (dissonant) ---
+  new Tone.Loop((time) => {
+    if (emotions.flow > 0.15) {
+      // Flow melody: generous probability, consonant scale, longer notes
+      const prob = 0.2 + emotions.flow * 0.5; // up to 70% chance per 8th
+      if (Math.random() < prob) {
+        const note = CONSONANT_SCALE[Math.floor(Math.random() * CONSONANT_SCALE.length)];
+        const dur = emotions.flow > 0.5 ? "4n" : "8n";
+        melody.triggerAttackRelease(note, dur, time, 0.2 + emotions.flow * 0.35);
+      }
+    } else if (emotions.craving > 0.3) {
+      if (Math.random() < 0.3 + emotions.craving * 0.4) {
+        const note = CRAVING_NOTES[Math.floor(Math.random() * CRAVING_NOTES.length)];
+        melody.triggerAttackRelease(note, "8n", time, 0.2 + emotions.craving * 0.3);
+      }
+    } else if (emotions.anger > 0.3) {
+      // Dissonant chromatic stabs when agitated
+      if (Math.random() < emotions.anger * 0.4) {
+        const CHROMATIC = ["C4","Db4","D4","Eb4","E4","F4","Gb4","G4","Ab4","A4","Bb4","B4"];
+        const note = CHROMATIC[Math.floor(Math.random() * CHROMATIC.length)];
+        melody.triggerAttackRelease(note, "16n", time, 0.15 + emotions.anger * 0.3);
+      }
+    }
+  }, "8n").start(0);
+
+  // --- FEAR: high dissonant stabs ---
+  new Tone.Loop((time) => {
+    if (emotions.fear > 0.3 && Math.random() < emotions.fear * 0.5) {
+      const note = FEAR_NOTES[Math.floor(Math.random() * FEAR_NOTES.length)];
+      fearSynth.triggerAttackRelease(note, "16n", time, 0.2 + emotions.fear * 0.4);
+    }
+  }, "8n").start(0);
+
+  Tone.Transport.start();
+}
+
+// =============================================================================
+// CONTINUOUS PARAMETER UPDATES (called every frame)
+// =============================================================================
+
+function updateMusic() {
+  // --- Master filter ---
+  let filterFreq = 2000;
+  if (emotions.sadness > 0.3)    filterFreq = 250 + (1 - emotions.sadness) * 1500;
+  else if (emotions.anger > 0.3) filterFreq = 3000 + emotions.anger * 7000;
+  else if (emotions.flow > 0.2)  filterFreq = 1500 + emotions.flow * 3500;
+  masterFilter.frequency.rampTo(filterFreq, 1.5);
+
+  // --- Reverb ---
+  const reverbWet = emotions.anger > 0.3 ? 0.08 :
+                    emotions.sadness > 0.3 ? 0.45 + emotions.sadness * 0.2 :
+                    0.2 + emotions.flow * 0.35;
+  masterReverb.wet.rampTo(reverbWet, 2);
+
+  // --- Tempo ---
+  let bpm = 78;
+  if (emotions.anger > 0.3)      bpm = 95 + emotions.anger * 45 + (Math.random() - 0.5) * 10;
+  else if (emotions.sadness > 0.3) bpm = 45 + (1 - emotions.sadness) * 30;
+  else                             bpm = 75 + emotions.flow * 8;
+  Tone.Transport.bpm.rampTo(bpm, 2);
+
+  // --- Bass: sub always present, growl emerges with sustained sadness ---
+  const sustainFactor = Math.min(1, sadnessDuration / 250); // ~8 seconds to max
+  const subVol = emotions.sadness > 0.3 ?
+    -6 + emotions.sadness * 6 + sustainFactor * 4 :  // up to 0dB+ when oppressive
+    -18 + emotions.flow * 6;
+  bassSub.volume.rampTo(Math.min(2, subVol), 1);
+
+  // Growl: silent normally, emerges with sustained sadness, gets nasty
+  const growlVol = -30 + emotions.sadness * 12 + sustainFactor * 14;
+  bassGrowl.volume.rampTo(Math.min(-4, growlVol), 1.5);
+  // Open growl filter as sadness sustains — more harmonics = more oppressive
+  bassGrowl.filterEnvelope.octaves = 1.5 + sustainFactor * 3;
+
+  // --- Pad ---
+  pad.volume.rampTo(-20 + emotions.flow * 14, 1.5);
+
+  // --- Percussion filter: round (low) when calm/sad, piercing (high) when agitated ---
+  const percFreq = 800 + emotions.flow * 1500           // calm: warm mid
+                   + emotions.anger * 5000                // anger: piercing high
+                   - emotions.sadness * 400;              // sadness: darker
+  percFilter.frequency.rampTo(Math.max(400, percFreq), 0.5);
+
+  // Perc Q: wider band when calm, narrow/resonant when agitated
+  percFilter.Q.rampTo(1 + emotions.anger * 8, 0.5);
+
+  // Perc decay: shorter/snappier when agitated, rounder when calm
+  const percDecay = emotions.anger > 0.3 ? 0.03 + (1 - emotions.anger) * 0.04 : 0.08 + emotions.flow * 0.04;
+  perc.envelope.decay = percDecay;
+  // Pitch decay: shorter when calm (more tonal), longer when agitated (more clicky)
+  perc.pitchDecay = emotions.anger > 0.3 ? 0.015 : 0.006;
+
+  // Perc reverb: more in calm, dry in anger
+  percReverb.wet.rampTo(emotions.anger > 0.3 ? 0.1 : 0.25 + emotions.flow * 0.2, 1);
+
+  // --- Fear ---
+  fearSynth.volume.rampTo(emotions.fear > 0.25 ? -20 + emotions.fear * 12 : -40, 1);
+  fearLFO.frequency.rampTo(emotions.fear > 0.25 ? 4 + emotions.fear * 10 : 2, 1);
+
+  // --- Stillness drone: builds when velocity is very low ---
+  const isStill = emotions.sadness > 0.3 && velocityHistory.length > 5 &&
+    mean(velocityHistory) < (ranges.velocity.min + (ranges.velocity.max - ranges.velocity.min) * 0.15);
+  if (isStill) {
+    stillnessIntensity = Math.min(1, stillnessIntensity + 0.002); // ~16 sec to full
+    if (!stillnessActive) {
+      stillnessDrone.triggerAttack("C1", Tone.now());
+      stillnessActive = true;
+    }
+  } else {
+    stillnessIntensity = Math.max(0, stillnessIntensity - 0.01); // decay 5x faster
+    if (stillnessActive && stillnessIntensity <= 0) {
+      stillnessDrone.triggerRelease(Tone.now());
+      stillnessActive = false;
+    }
+  }
+  // Volume: inaudible → oppressively loud
+  const droneVol = -60 + stillnessIntensity * 48; // -60dB to -12dB
+  stillnessDrone.volume.rampTo(droneVol, 0.5);
+  // Filter opens with intensity — more harmonics = more sawtooth nastiness
+  stillnessFilter.frequency.rampTo(200 + stillnessIntensity * 2000, 1);
+
+  // --- Melody volume: louder during flow ---
+  melody.volume.rampTo(emotions.flow > 0.15 ? -12 + emotions.flow * 6 : -22, 1);
+}
+
+// =============================================================================
+// MEDIAPIPE
+// =============================================================================
+
+async function initPose() {
+  const vision = await FilesetResolver.forVisionTasks(
+    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
+  );
+  const poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
+    baseOptions: {
+      modelAssetPath: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
+      delegate: "GPU",
+    },
+    runningMode: "VIDEO",
+    numPoses: 1,
+    minPoseDetectionConfidence: 0.6,
+    minPosePresenceConfidence: 0.6,
+    minTrackingConfidence: 0.5,
+  });
+
+  const video = document.getElementById("video");
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    throw new Error("Camera requires localhost or HTTPS. Open http://localhost:" + location.port);
+  }
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: { width: 640, height: 480, facingMode: "user" },
+    audio: false,
+  });
+  video.srcObject = stream;
+  await new Promise(r => { video.onloadedmetadata = r; });
+  await video.play();
+  console.log(`Camera ready: ${video.videoWidth}x${video.videoHeight}`);
+  return { poseLandmarker, video };
+}
+
+// =============================================================================
+// DEBUG DISPLAY
+// =============================================================================
+
+const debugEl = document.getElementById("debug");
+let debugVisible = true; // start visible for development
+debugEl.style.display = "block";
+
+function updateDebug(primitives) {
+  if (!debugVisible) return;
+
+  // Emotions
+  for (const key of ["anger", "sadness", "fear", "craving", "flow"]) {
+    const v = emotions[key];
+    document.getElementById(`m-${key}`).style.width = `${v * 100}%`;
+    document.getElementById(`v-${key}`).textContent = v.toFixed(2);
+  }
+
+  // Primitives
+  for (const key of ["velocity", "jerkiness", "contraction", "verticality", "symmetry"]) {
+    const v = primitives[key];
+    document.getElementById(`m-${key}`).style.width = `${v * 100}%`;
+    document.getElementById(`v-${key}`).textContent = v.toFixed(2);
+  }
+}
+
+// =============================================================================
+// ORB RENDERING — translucent gradient balls at joint positions
+// =============================================================================
+
+const orbCanvas = document.getElementById("orbs");
+const orbCtx = orbCanvas.getContext("2d");
+
+// Joints to show as orbs — a subset for visual clarity
+// Hands, elbows, shoulders, hips, knees, feet + nose
+const ORB_JOINTS = [
+  { idx: 0,  size: 25 },  // nose
+  { idx: 11, size: 30 },  // left shoulder
+  { idx: 12, size: 30 },  // right shoulder
+  { idx: 13, size: 22 },  // left elbow
+  { idx: 14, size: 22 },  // right elbow
+  { idx: 15, size: 28 },  // left wrist
+  { idx: 16, size: 28 },  // right wrist
+  { idx: 23, size: 30 },  // left hip
+  { idx: 24, size: 30 },  // right hip
+  { idx: 25, size: 22 },  // left knee
+  { idx: 26, size: 22 },  // right knee
+  { idx: 27, size: 20 },  // left ankle
+  { idx: 28, size: 20 },  // right ankle
+];
+
+function resizeOrbCanvas() {
+  orbCanvas.width = window.innerWidth;
+  orbCanvas.height = window.innerHeight;
+}
+window.addEventListener("resize", resizeOrbCanvas);
+resizeOrbCanvas();
+
+let lastOrbLandmarks = null;
+
+function drawOrbs(landmarks) {
+  lastOrbLandmarks = landmarks;
+  const w = orbCanvas.width;
+  const h = orbCanvas.height;
+
+  orbCtx.clearRect(0, 0, w, h);
+
+  // Pick orb color from current emotional state
+  const r = Math.round(120 + emotions.anger * 135);
+  const g = Math.round(120 + emotions.flow * 135);
+  const b = Math.round(120 + emotions.sadness * 100 + emotions.fear * 35);
+
+  let drawn = 0;
+  for (const orb of ORB_JOINTS) {
+    const lm = landmarks[orb.idx];
+    if (lm.visibility < 0.3) continue; // lower threshold to show more
+
+    // Mirror X (camera is mirrored) and map to screen
+    const x = (1 - lm.x) * w;
+    const y = lm.y * h;
+
+    // Size pulses with velocity
+    const baseSize = orb.size * (w / 640) * 1.5; // 50% bigger
+    const velPulse = 1 + (velocityHistory.length > 0 ?
+      velocityHistory[velocityHistory.length - 1] * 20 : 0);
+    const radius = baseSize * velPulse;
+
+    // Outer glow
+    const grad = orbCtx.createRadialGradient(x, y, 0, x, y, radius);
+    grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.7)`);
+    grad.addColorStop(0.3, `rgba(${r}, ${g}, ${b}, 0.35)`);
+    grad.addColorStop(0.7, `rgba(${r}, ${g}, ${b}, 0.1)`);
+    grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+
+    orbCtx.fillStyle = grad;
+    orbCtx.beginPath();
+    orbCtx.arc(x, y, radius, 0, Math.PI * 2);
+    orbCtx.fill();
+
+    // Bright core dot
+    orbCtx.fillStyle = `rgba(${Math.min(255, r + 80)}, ${Math.min(255, g + 80)}, ${Math.min(255, b + 80)}, 0.8)`;
+    orbCtx.beginPath();
+    orbCtx.arc(x, y, 4 * (w / 640), 0, Math.PI * 2);
+    orbCtx.fill();
+
+    drawn++;
+  }
+
+  // Log first detection
+  if (drawn > 0 && !drawOrbs._logged) {
+    console.log(`Drawing ${drawn} orbs`);
+    drawOrbs._logged = true;
+  }
+}
+
+// =============================================================================
+// MAIN LOOP
+// =============================================================================
+
+let frameCount = 0;
+let lastFpsTime = Date.now();
+
+let detectLogOnce = false;
+function detectLoop(poseLandmarker, video) {
+  const now = performance.now();
+
+  if (!detectLogOnce) {
+    console.log("Detect loop running. Video ready:", video.readyState >= 2,
+      "Video size:", video.videoWidth, "x", video.videoHeight);
+    detectLogOnce = true;
+  }
+
+  // Video must be playing and have frames
+  if (video.readyState < 2) {
+    requestAnimationFrame(() => detectLoop(poseLandmarker, video));
+    return;
+  }
+
+  const results = poseLandmarker.detectForVideo(video, now);
+
+  if (results.landmarks && results.landmarks.length > 0) {
+    const landmarks = smoothLandmarks(results.landmarks[0], now / 1000);
+    const primitives = computePrimitives(landmarks);
+    computeEmotions(primitives);
+    updateDebug(primitives);
+    updateMusic();
+    drawOrbs(landmarks);
+    if (debugVisible) {
+      document.getElementById("d-tracking").textContent = "yes";
+      document.getElementById("d-tracking").style.color = "#4d8";
+    }
+  } else {
+    // No pose detected — clear orbs and show tracking status
+    orbCtx.clearRect(0, 0, orbCanvas.width, orbCanvas.height);
+    if (debugVisible) {
+      document.getElementById("d-tracking").textContent = "no";
+      document.getElementById("d-tracking").style.color = "#f44";
+    }
+  }
+
+  updateCloud();
+
+  frameCount++;
+  if (Date.now() - lastFpsTime >= 1000) {
+    if (debugVisible) document.getElementById("d-fps").textContent = frameCount;
+    frameCount = 0;
+    lastFpsTime = Date.now();
+  }
+
+  requestAnimationFrame(() => detectLoop(poseLandmarker, video));
+}
+
+// Toggle debug with 'd' key
+document.addEventListener("keydown", (e) => {
+  if (e.key === "d") {
+    debugVisible = !debugVisible;
+    debugEl.style.display = debugVisible ? "block" : "none";
+  }
+});
+
+// =============================================================================
+// START
+// =============================================================================
+
+window.startExperience = async function() {
+  const startBtn = document.getElementById("start-btn");
+  startBtn.textContent = "Loading...";
+  startBtn.disabled = true;
+
+  try {
+    console.log("Starting audio...");
+    await Tone.start();
+    console.log("Audio started. Loading MediaPipe...");
+    const { poseLandmarker, video } = await initPose();
+    console.log("MediaPipe ready. Starting music...");
+    startMusic();
+    document.getElementById("start-screen").style.display = "none";
+    console.log("Starting detect loop...");
+    detectLoop(poseLandmarker, video);
+  } catch (err) {
+    startBtn.textContent = "Error: " + err.message;
+    console.error(err);
+  }
+};
+</script>
+</body>
+</html>
