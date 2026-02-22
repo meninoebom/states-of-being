@@ -501,13 +501,11 @@ function computeEmotions(p) {
 
   // --- Anger: fast OR jagged OR incoherent — very low threshold ---
   // Shaking violently in place should slam this to 1.0
-  // Uses coherence (limb timing) instead of raw symmetry — smooth asymmetric movement is fine
+  // ONLY jerkiness gates anger — smooth fast movement stays in flow
   const angerRaw = p.velocity * 0.25 + p.jerkiness * 0.45 + (1 - p.coherence) * 0.3;
-  const angerGate = Math.max(
-    smoothstep(0.12, 0.30, p.velocity),   // raised from 0.08/0.25
-    smoothstep(0.15, 0.35, p.jerkiness)   // raised from 0.1/0.3
-  );
-  const angerTarget = angerRaw * angerGate * 1.4; // was 1.6
+  const angerGate = smoothstep(0.18, 0.40, p.jerkiness); // jerkiness is the ONLY gate
+  const velocityBoost = smoothstep(0.6, 0.9, p.velocity) * 0.3; // extreme speed adds a little
+  const angerTarget = (angerRaw + velocityBoost) * angerGate * 1.4;
 
   // --- Sadness: still AND contracted AND slumped ---
   // Gate: velocity must be LOW. If you're moving, you're not sad in this model.
@@ -766,7 +764,7 @@ const shakerFilter = new Tone.Filter({ frequency: 7000, type: "bandpass", Q: 3 }
 const shaker = new Tone.NoiseSynth({
   noise: { type: "white" },
   envelope: { attack: 0.004, decay: 0.07, sustain: 0, release: 0.08 },
-  volume: -28,
+  volume: -22,  // was -28
 }).connect(shakerFilter);
 
 // --- BASS GONG: FM synthesis for pleasant initial gong tone (stillness instrument) ---
@@ -937,24 +935,27 @@ function startMusic() {
   // --- MELODY: flow (guided phrases), craving (reaching), anger (dissonant) ---
   let phraseStep = 0; // tracks position within a resolution phrase
   let currentPhrase = null;
+  let melodyBeatCount = 0;
   new Tone.Loop((time) => {
     if (emotions.flow > 0.15) {
       // Flow melody: guided resolution phrases — jazz ballad feel
-      const prob = 0.15 + emotions.flow * 0.45;
+      // Near-deterministic: high flow = every beat, low flow = every other beat
+      const melodyInterval = emotions.flow > 0.5 ? 1 : 2; // beats between triggers
       if (currentPhrase && phraseStep < currentPhrase.length) {
-        // Continue phrase
+        // Continue phrase — always play next note
         const note = currentPhrase[phraseStep];
         const dur = phraseStep === currentPhrase.length - 1 ? "4n" : "8n";
         melody.triggerAttackRelease(note, dur, time, 0.2 + emotions.flow * 0.35);
         phraseStep++;
-      } else if (Math.random() < prob) {
-        // Start new phrase — use scene-specific phrases for tonal center
+      } else if (melodyBeatCount % melodyInterval === 0) {
+        // Start new phrase on schedule
         const scenePhases = SCENE_FLOW_PHRASES[currentScene];
         currentPhrase = scenePhases[Math.floor(Math.random() * scenePhases.length)];
         phraseStep = 0;
         melody.triggerAttackRelease(currentPhrase[phraseStep], "8n", time, 0.2 + emotions.flow * 0.3);
         phraseStep++;
       }
+      melodyBeatCount++;
     } else if (emotions.craving > 0.3) {
       currentPhrase = null;
       if (Math.random() < 0.3 + emotions.craving * 0.4) {
@@ -974,7 +975,7 @@ function startMusic() {
 
   // --- BELL: gentle chimes during flow, gentle syncopation ---
   new Tone.Loop((time) => {
-    if (emotions.flow > 0.3 && Math.random() < 0.2 + emotions.flow * 0.3) {
+    if (emotions.flow > 0.15 && Math.random() < 0.25 + emotions.flow * 0.35) {
       const bellNotes = ["Eb4", "G4", "Bb4", "C5", "D5"];
       const note = bellNotes[Math.floor(Math.random() * bellNotes.length)];
       // Gentle swing offset for jazz feel
@@ -1008,8 +1009,8 @@ function startMusic() {
         kalimba.triggerAttackRelease(note, "32n", time, 0.3 + emotions.anger * 0.5);
       }
     } else if (emotions.flow > 0.2) {
-      // Flow: sparse, one note every 2-4 beats — breathing space
-      const sparsity = Math.max(1, Math.floor(6 - emotions.flow * 4)); // 6→2 steps between hits
+      // Flow: gentle plucks, denser as flow increases
+      const sparsity = Math.max(1, Math.floor(4 - emotions.flow * 3)); // 4→1 steps between hits
       if (step % sparsity === 0) {
         const idx = step % notes.length;
         kalimba.triggerAttackRelease(notes[idx], "8n", time, 0.15 + emotions.flow * 0.25);
@@ -1033,8 +1034,8 @@ function startMusic() {
       prob = 0.45 + emotions.anger * 0.45;
       vel  = 0.35 + emotions.anger * 0.45;
     } else if (emotions.flow > 0.2) {
-      prob = 0.06 + emotions.flow * 0.16;
-      vel  = 0.08 + emotions.flow * 0.18;
+      prob = 0.12 + emotions.flow * 0.25;  // was 0.06+0.16
+      vel  = 0.15 + emotions.flow * 0.25;  // was 0.08+0.18
     }
 
     if (Math.random() < prob) {
@@ -1059,10 +1060,10 @@ function startMusic() {
 
 function updateMusic() {
   // --- Master filter ---
-  let filterFreq = 2000;
+  let filterFreq = 3500;  // was 2000 — let brightness through
   if (emotions.sadness > 0.3)    filterFreq = 250 + (1 - emotions.sadness) * 1500;
   else if (emotions.anger > 0.3) filterFreq = 3000 + emotions.anger * 7000;
-  else if (emotions.flow > 0.2)  filterFreq = 1500 + emotions.flow * 3500;
+  else if (emotions.flow > 0.2)  filterFreq = 2500 + emotions.flow * 4500; // was 1500+3500
   masterFilter.frequency.rampTo(filterFreq, 1.5);
 
   // --- Reverb ---
@@ -1092,7 +1093,7 @@ function updateMusic() {
   bassGrowl.filterEnvelope.octaves = 1.5 + sustainFactor * 3;
 
   // --- Pad: volume + distortion transform ---
-  pad.volume.rampTo(-20 + emotions.flow * 14, 1.5);
+  pad.volume.rampTo(-16 + emotions.flow * 10, 1.5); // was -20+14, louder floor
   // Chebyshev order: 1 (clean) → 50 (screaming harmonics) with anger
   const chebOrder = Math.max(1, Math.round(1 + emotions.anger * 49));
   padDistortion.set({ order: chebOrder });
@@ -1193,7 +1194,7 @@ function updateMusic() {
   melodyVibrato.wet.rampTo(emotions.flow > 0.3 ? 0.4 + emotions.flow * 0.4 : 0, 1);
 
   // --- Bell: audible only during flow ---
-  bell.volume.rampTo(emotions.flow > 0.3 ? -18 + emotions.flow * 8 : -40, 1.5);
+  bell.volume.rampTo(emotions.flow > 0.15 ? -15 + emotions.flow * 8 : -40, 1.5); // gate 0.3→0.15, +3dB
 
   // --- Gong: starts pleasant, grows oppressive with sustained stillness ---
   const gongVol = emotions.sadness > 0.3 ? -20 + sustainFactor * 14 : -40;
