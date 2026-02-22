@@ -102,20 +102,20 @@
   /* --- Presentation Bars (top: primitives ↓, bottom: emotions ↑) --- */
   .hud-bar {
     position: fixed; left: 0; right: 0; z-index: 50;
-    display: flex; justify-content: center; gap: 6px;
-    padding: 0 20px; pointer-events: none;
+    display: flex; justify-content: center; gap: 0;
+    padding: 0; pointer-events: none;
   }
   #primitives-bar {
-    top: 0; height: 110px; align-items: flex-start;
-    background: linear-gradient(rgba(0,0,0,0.45) 60%, transparent);
+    top: 0; height: 120px; align-items: flex-start;
+    background: linear-gradient(rgba(0,0,0,0.4) 55%, transparent);
   }
   #emotion-bar {
-    bottom: 0; height: 110px; align-items: flex-end;
-    background: linear-gradient(transparent, rgba(0,0,0,0.45) 40%);
+    bottom: 0; height: 120px; align-items: flex-end;
+    background: linear-gradient(transparent, rgba(0,0,0,0.4) 45%);
   }
   .hud-col {
     display: flex; flex-direction: column; align-items: center;
-    flex: 1; max-width: 120px; min-width: 60px;
+    flex: 1; min-width: 0;
   }
   /* Top bar: label then bar growing DOWN */
   #primitives-bar .hud-col { padding-top: 6px; }
@@ -127,12 +127,12 @@
   #emotion-bar .hud-track { order: 0; }
 
   .hud-track {
-    width: 100%; height: 60px; background: rgba(255,255,255,0.04);
-    border-radius: 4px; position: relative; overflow: hidden;
+    width: 100%; height: 80px; background: rgba(255,255,255,0.02);
+    border-radius: 0; position: relative; overflow: hidden;
   }
   .hud-fill {
-    position: absolute; width: 100%; border-radius: 4px;
-    opacity: 0.7; transition: height 0.18s ease;
+    position: absolute; width: 100%; border-radius: 0;
+    opacity: 0.45; transition: height 0.18s ease;
   }
   /* Primitives fill from TOP down */
   #primitives-bar .hud-fill { top: 0; }
@@ -140,17 +140,16 @@
   #emotion-bar .hud-fill { bottom: 0; }
 
   .hud-label {
-    font-family: monospace; font-size: 13px; font-weight: 700;
+    font-family: monospace; font-size: 15px; font-weight: 400;
     text-transform: uppercase; letter-spacing: 1.5px;
-    color: rgba(255,255,255,0.4); white-space: nowrap;
-    transition: color 0.3s, text-shadow 0.3s;
+    color: #fff; opacity: 0.25; white-space: nowrap;
+    transition: opacity 0.2s, text-shadow 0.3s;
   }
   .hud-col.dominant .hud-label {
-    color: rgba(255,255,255,0.9);
-    text-shadow: 0 0 10px var(--bar-color);
+    text-shadow: 0 0 8px var(--bar-color);
   }
   .hud-col.dominant .hud-track {
-    box-shadow: 0 0 16px var(--bar-color);
+    box-shadow: 0 0 10px var(--bar-color);
   }
 
   #video { display: none; }
@@ -1442,23 +1441,29 @@ resizeOrbCanvas();
 const emotionCols = document.querySelectorAll('#emotion-bar .hud-col');
 const primCols = document.querySelectorAll('#primitives-bar .hud-col');
 function updateEmotionBar() {
-  // Bottom: emotions
+  // Bottom: emotions — label intensity proportional to value
   emotionCols.forEach(el => {
     const name = el.dataset.emotion;
     const val = emotions[name] || 0;
     el.querySelector('.hud-fill').style.height = (val * 100) + '%';
+    const label = el.querySelector('.hud-label');
+    label.style.opacity = 0.25 + val * 0.75;
+    label.style.fontWeight = val > 0.5 ? 900 : val > 0.2 ? 600 : 400;
     if (name === currentDominant && val > 0.05) {
       el.classList.add('dominant');
     } else {
       el.classList.remove('dominant');
     }
   });
-  // Top: primitives
+  // Top: primitives — label intensity proportional to value
   if (currentPrimitives) {
     primCols.forEach(el => {
       const name = el.dataset.prim;
       const val = currentPrimitives[name] || 0;
       el.querySelector('.hud-fill').style.height = (Math.min(1, val) * 100) + '%';
+      const label = el.querySelector('.hud-label');
+      label.style.opacity = 0.25 + val * 0.65;
+      label.style.fontWeight = val > 0.5 ? 700 : 400;
     });
   }
 }
