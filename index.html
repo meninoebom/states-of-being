@@ -497,7 +497,7 @@ let currentPrimitives = { velocity: 0, jerkiness: 0, contraction: 0.5, verticali
                           coherence: 0.5, ankleSpread: 0.5, wristSpread: 0.5 };
 
 function computeEmotions(p) {
-  const rate = 0.1; // lerp rate — slightly faster for responsiveness
+  const rate = 0.06; // lerp rate — was 0.1, slowed for smoother transitions while dancing
 
   // --- Anger: fast OR jagged OR incoherent — very low threshold ---
   // Shaking violently in place should slam this to 1.0
@@ -549,7 +549,7 @@ function computeEmotions(p) {
   const flowTarget     = Math.min(1, flowRaw * 1.4);
 
   // Lerp toward targets
-  emotions.anger   += (Math.min(1, angerTarget)   - emotions.anger)   * (angerTarget > emotions.anger ? 0.15 : rate); // was 0.2, slightly slower attack
+  emotions.anger   += (Math.min(1, angerTarget)   - emotions.anger)   * (angerTarget > emotions.anger ? 0.09 : rate); // fast attack, proportional to base rate
   emotions.sadness += (Math.min(1, sadnessTarget) - emotions.sadness) * rate;
   emotions.fear    += (Math.min(1, fearTarget)    - emotions.fear)    * rate;
   emotions.craving += (Math.min(1, cravingTarget) - emotions.craving) * rate;
@@ -590,39 +590,49 @@ function smoothstep(edge0, edge1, x) {
 
 const cloud = document.getElementById("cloud");
 let currentHue = 215, currentSat = 18, currentLight = 9;
+let currentDominant = "neutral"; // hysteresis: only switches when another emotion leads by 0.08+
 let currentFlickerOffset = 0;
 
 function updateCloud() {
   let targetHue, targetSat, targetLight;
 
-  // Dominant emotion drives color
-  const dominant = Math.max(emotions.anger, emotions.sadness, emotions.fear, emotions.craving, emotions.flow);
+  // Dominant emotion with hysteresis — sticky winner prevents flickering
+  const emotionMap = { anger: emotions.anger, sadness: emotions.sadness, fear: emotions.fear, craving: emotions.craving, flow: emotions.flow };
+  let highestName = "neutral", highestVal = 0;
+  for (const [name, val] of Object.entries(emotionMap)) {
+    if (val > highestVal) { highestVal = val; highestName = name; }
+  }
+  // Only switch dominant if new emotion exceeds current by margin
+  const currentVal = emotionMap[currentDominant] || 0;
+  if (highestVal > currentVal + 0.08 || currentVal < 0.05) {
+    currentDominant = highestName;
+  }
 
-  if (emotions.flow > 0.4 && emotions.flow >= dominant * 0.8) {
+  if (currentDominant === "flow" && emotions.flow > 0.2) {
     // Flow: bioluminescent blue-teal
     const t = emotions.flow;
     targetHue   = 200 - t * 25;   // 200→175
     targetSat   = 55 + t * 25;    // 55→80%
     targetLight = 18 + t * 20;    // 18→38%
-  } else if (emotions.sadness >= dominant * 0.8) {
+  } else if (currentDominant === "sadness") {
     // Stillness: black→grey→white brightness overload
     const sf = Math.min(1, sadnessDuration / 250);
     targetHue   = 230 - sf * 30;  // 230→200 (blue-black bleaches to grey)
     targetSat   = 30 - sf * 28;   // 30→2% (drains to near-greyscale)
     targetLight = 8 + sf * 47;    // 8→55% (the bleach arc)
-  } else if (emotions.anger >= dominant * 0.8) {
+  } else if (currentDominant === "anger") {
     // Anger: burnt orange → deep blood red
     const a = emotions.anger;
     targetHue   = 20 - a * 22;    // 20→~358
     targetSat   = 70 + a * 25;    // 70→95%
     targetLight = 30 - a * 5;     // 30→25%
-  } else if (emotions.fear >= dominant * 0.8) {
+  } else if (currentDominant === "fear") {
     // Fear: sickly yellow-green → bile yellow
     const f = emotions.fear;
     targetHue   = 75 - f * 20;    // 75→55
     targetSat   = 55 + f * 20;    // 55→75%
     targetLight = 22 + f * 23;    // 22→45%
-  } else if (emotions.craving >= dominant * 0.8) {
+  } else if (currentDominant === "craving") {
     // Craving: amber longing
     const c = emotions.craving;
     targetHue   = 35 + c * 10;    // 35→45
