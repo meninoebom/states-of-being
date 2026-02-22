@@ -67,10 +67,15 @@ Anger uses fast attack (0.2) but normal decay (0.1) so shaking registers immedia
 
 ## Known Issues / Next Steps
 
-- **Audio pops**: Fixed by switching perc from MembraneSynth to PolySynth(MembraneSynth) with maxPolyphony:4. Also added attack cushion to bassGrowl. If pops persist, check bell/gong voice overlap.
+- **Audio pops**: Mitigated with longer release envelope (0.1s) on MembraneSynth. PolySynth approach failed — see gotcha below.
 - **Tracking latency**: MediaPipe detection runs at rAF speed. Could decouple detection frequency from render frequency for lower latency.
-- **Flow threshold**: Has been tuned down multiple times. User wants flow to register at very slow, smooth movement.
+- **Flow threshold**: Redesigned — smoothness ratio approach, very low velocity gate (0.03). Working well.
 - **Anger threshold**: Similarly tuned down. Shaking in place should slam anger to 1.0.
+
+### Gotchas
+
+- **PolySynth + frame loop**: NEVER use PolySynth for instruments whose per-voice properties (`.envelope.decay`, `.pitchDecay`) are modified in `updateMusic()`. PolySynth doesn't expose these at the top level — the error crashes `updateMusic()` → `detectLoop()` stops calling `requestAnimationFrame` → MediaPipe tracking dies silently. One audio error kills the entire app. If you need PolySynth, only modify top-level properties (`.volume`, `.triggerAttackRelease`) or use `.set()`.
+- **Tone.js v14 PolySynth constructor**: Options go flat at the top level, NOT nested under a `voice:` key. `new Tone.PolySynth(Tone.Synth, { oscillator: {...} })` — not `{ voice: { oscillator: {...} } }`.
 
 ## Visual Design
 
