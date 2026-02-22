@@ -192,7 +192,7 @@
     <span class="meter-val" id="v-wristSpread">0.00</span>
   </div>
 
-  <div class="fps-line"><span id="d-fps">0</span> fps | tracking: <span id="d-tracking" style="color:#f44">no</span></div>
+  <div class="fps-line"><span id="d-fps">0</span> fps | tracking: <span id="d-tracking" style="color:#f44">no</span> | scene: <span id="d-scene">0</span> | armed: <span id="d-armed">no</span></div>
 </div>
 
 <video id="video" playsinline autoplay muted></video>
@@ -563,6 +563,22 @@ function computeEmotions(p) {
   } else {
     sadnessDuration = Math.max(0, sadnessDuration - 3);
   }
+
+  // --- Scene change: prolonged stillness followed by movement = new chapter ---
+  // Arm when sadnessDuration crosses ~10 second threshold (300 frames @ 30fps)
+  if (sadnessDuration >= 300 && !sceneChangeArmed && sceneCooldown <= 0) {
+    sceneChangeArmed = true;
+  }
+  // Fire when movement resumes after sustained stillness
+  if (sceneChangeArmed && p.velocity > 0.2) {
+    currentScene = (currentScene + 1) % SCENE_COUNT;
+    sceneChangeArmed = false;
+    sadnessDuration = 0;    // reset so bass doesn't stay oppressive into new scene
+    sceneCooldown = 180;    // ~6 second cooldown before next scene change can arm
+    chordIndex = SCENE_CHORD_OFFSETS[currentScene]; // shift harmonic starting point
+    console.log(`Scene → ${currentScene}`);
+  }
+  if (sceneCooldown > 0) sceneCooldown--;
 }
 
 function smoothstep(edge0, edge1, x) {
@@ -724,6 +740,25 @@ const bell = new Tone.PolySynth(Tone.Synth, {
   volume: -22,
 }).connect(bellReverb);
 
+// --- KICK DRUM: resonant 808-style sub kick ---
+const kickFilter = new Tone.Filter({ frequency: 100, type: "lowpass", rolloff: -24 }).connect(masterFilter);
+const kickDistortion = new Tone.Distortion({ distortion: 0, wet: 0 }).connect(kickFilter);
+const kickDrum = new Tone.MembraneSynth({
+  pitchDecay: 0.5,
+  octaves: 6,
+  oscillator: { type: "sine" },
+  envelope: { attack: 0.001, decay: 0.8, sustain: 0, release: 1.5 },
+  volume: -12,
+}).connect(kickDistortion);
+
+// --- SHAKER: noise-based cymbal texture ---
+const shakerFilter = new Tone.Filter({ frequency: 7000, type: "bandpass", Q: 3 }).connect(masterFilter);
+const shaker = new Tone.NoiseSynth({
+  noise: { type: "white" },
+  envelope: { attack: 0.004, decay: 0.07, sustain: 0, release: 0.08 },
+  volume: -28,
+}).connect(shakerFilter);
+
 // --- BASS GONG: FM synthesis for pleasant initial gong tone (stillness instrument) ---
 const bassGong = new Tone.FMSynth({
   harmonicity: 5.1,
@@ -789,9 +824,43 @@ const FLOW_PHRASES = [
   ["D4", "C4"], ["Bb3", "G3"], ["F4", "Eb4"], ["Ab3", "G3"],
   ["D4", "Eb4"], ["C4", "Bb3"], ["G4", "F4"], ["Eb4", "D4"],
 ];
+
+// Per-scene resolution phrases — each scene emphasizes its tonal center.
+// Scene 0: C minor root (C, Eb, G) — home base, resolves downward to C/G
+// Scene 1: Subdominant Fm (F, Ab, C) — more melancholic, resolves to F/Ab
+// Scene 2: Relative major Eb (Eb, G, Bb) — slightly brighter, resolves to Eb/Bb
+// Scene 3: Dominant G (G, Bb, D) — tension and yearning, unresolved feel
+const SCENE_FLOW_PHRASES = [
+  // Scene 0: Root emphasis — resolve TO C or G
+  [["D4","C4"], ["Bb3","G3"], ["F4","Eb4","C4"], ["Ab3","G3"], ["Eb4","C4"]],
+  // Scene 1: Subdominant emphasis — resolve TO F or Ab
+  [["G4","F4"], ["Eb4","C4","Ab3"], ["Bb3","Ab3"], ["C4","Ab3"], ["G4","Eb4","F4"]],
+  // Scene 2: Relative major emphasis — resolve TO Eb or Bb
+  [["F4","Eb4"], ["D4","Eb4"], ["C4","Bb3"], ["G4","F4","Eb4"], ["Ab3","Bb3"]],
+  // Scene 3: Dominant emphasis — G/Bb/D yearning, purposely less resolved
+  [["F4","D4"], ["C4","D4"], ["Bb3","G3","D4"], ["Ab3","Bb3"], ["Eb4","D4"]],
+];
 const CONSONANT_SCALE = ["C3", "D3", "Eb3", "F3", "G3", "Ab3", "Bb3", "C4", "D4", "Eb4", "F4", "G4"];
 
 let chordIndex = 0;
+
+// =============================================================================
+// SCENE STATE — global chapter tracker (readable by all loops + percussion)
+// =============================================================================
+// Scenes advance when sustained stillness (sadnessDuration > threshold) is
+// followed by renewed movement. Think: a new chapter with the same world.
+let currentScene = 0;
+const SCENE_COUNT = 4;
+let sceneChangeArmed = false; // set true when stillness threshold crossed
+let sceneCooldown = 0;        // frames remaining before next scene change is allowed
+
+// Per-scene chord offsets into CALM_CHORDS:
+//   [Cm9, Fm9, Bb13, EbMaj9, G7b5]
+// Scene 0: Cm9 start — root/home emphasis
+// Scene 1: Fm9 start — subdominant, more melancholic
+// Scene 2: EbMaj9 start — relative major, slightly brighter
+// Scene 3: G7b5 start — dominant tension, yearning
+const SCENE_CHORD_OFFSETS = [0, 1, 3, 4];
 
 // =============================================================================
 // MUSIC SCHEDULING
@@ -869,8 +938,9 @@ function startMusic() {
         melody.triggerAttackRelease(note, dur, time, 0.2 + emotions.flow * 0.35);
         phraseStep++;
       } else if (Math.random() < prob) {
-        // Start new phrase
-        currentPhrase = FLOW_PHRASES[Math.floor(Math.random() * FLOW_PHRASES.length)];
+        // Start new phrase — use scene-specific phrases for tonal center
+        const scenePhases = SCENE_FLOW_PHRASES[currentScene];
+        currentPhrase = scenePhases[Math.floor(Math.random() * scenePhases.length)];
         phraseStep = 0;
         melody.triggerAttackRelease(currentPhrase[phraseStep], "8n", time, 0.2 + emotions.flow * 0.3);
         phraseStep++;
@@ -914,6 +984,61 @@ function startMusic() {
       bassGong.triggerAttackRelease(note, "1m", time, Math.min(1, vel));
     }
   }, "2m").start(0);
+
+  // --- KICK: quarter-note grid, scene-aware patterns ---
+  let kickStep = 0;
+  new Tone.Loop((time) => {
+    const step = kickStep % 4;
+    let shouldHit = false;
+    let ghostHit = false;
+
+    if (emotions.anger > 0.4) {
+      // Agitated: irregular
+      shouldHit = Math.random() > (0.25 + emotions.anger * 0.25);
+    } else if (emotions.sadness > 0.5) {
+      // Stillness: sparse, only downbeat
+      shouldHit = (step === 0);
+    } else {
+      // Scene-based groove patterns
+      if (currentScene === 0) {
+        shouldHit = (step === 0 || step === 2);         // beats 1 and 3
+      } else if (currentScene === 1) {
+        shouldHit = (step === 1 || step === 3);         // backbeat 2 and 4
+      } else if (currentScene === 2) {
+        shouldHit = (step === 0 || step === 2);
+        ghostHit  = (step === 3);                       // ghost on 4
+      } else {
+        shouldHit = (step === 0 || step === 3);         // scene 3: 1 and 4
+      }
+    }
+
+    if (shouldHit) {
+      const vel = Math.min(1, 0.55 + emotions.flow * 0.3 - emotions.sadness * 0.15);
+      kickDrum.triggerAttackRelease("C1", "8n", time, vel);
+    }
+    if (ghostHit) {
+      kickDrum.triggerAttackRelease("C1", "16n", time, 0.18);
+    }
+    kickStep++;
+  }, "4n").start(0);
+
+  // --- SHAKER: 8th-note grid, probabilistic shimmer ---
+  new Tone.Loop((time) => {
+    let prob = 0;
+    let vel = 0;
+
+    if (emotions.anger > 0.3) {
+      prob = 0.45 + emotions.anger * 0.45;
+      vel  = 0.35 + emotions.anger * 0.45;
+    } else if (emotions.flow > 0.2) {
+      prob = 0.06 + emotions.flow * 0.16;
+      vel  = 0.08 + emotions.flow * 0.18;
+    }
+
+    if (Math.random() < prob) {
+      shaker.triggerAttackRelease("16n", time, Math.min(1, vel));
+    }
+  }, "8n").start(0);
 
   // --- FEAR: high dissonant stabs ---
   new Tone.Loop((time) => {
@@ -993,6 +1118,42 @@ function updateMusic() {
 
   // Perc reverb: more in calm, dry in anger
   percReverb.wet.rampTo(emotions.anger > 0.3 ? 0.1 : 0.25 + emotions.flow * 0.2, 1);
+
+  // --- Kick drum: tonal character ---
+  kickDrum.envelope.decay = emotions.anger > 0.3
+    ? 0.12 + (1 - emotions.anger) * 0.2
+    : emotions.sadness > 0.4
+    ? 1.2 + emotions.sadness * 1.0
+    : 0.5 + emotions.flow * 0.4;
+  kickDrum.pitchDecay = emotions.anger > 0.3 ? 0.08
+                      : emotions.sadness > 0.4 ? 0.9
+                      : 0.5;
+  const kickVol = emotions.sadness > 0.4 ? -6 + emotions.sadness * 6
+                : emotions.flow > 0.3 ? -10 + emotions.flow * 5
+                : emotions.anger > 0.3 ? -14 + emotions.anger * 6
+                : -20;
+  kickDrum.volume.rampTo(Math.min(0, kickVol), 0.5);
+  kickFilter.frequency.rampTo(emotions.anger > 0.3
+    ? 150 + emotions.anger * 250
+    : 70 + emotions.flow * 50, 0.5);
+  // Kick distortion during stillness
+  const kickDistAmt = emotions.sadness > 0.5
+    ? (emotions.sadness - 0.5) * 0.5
+    : emotions.anger > 0.8 ? (emotions.anger - 0.8) * 1.5 : 0;
+  kickDistortion.distortion = Math.min(0.5, kickDistAmt);
+  kickDistortion.wet.rampTo(kickDistAmt > 0.05 ? Math.min(0.6, kickDistAmt * 2) : 0, 0.8);
+
+  // --- Shaker: spectral character ---
+  const shakerFreq = emotions.anger > 0.3
+    ? 5000 + emotions.anger * 9000
+    : emotions.flow > 0.2 ? 3500 + emotions.flow * 2500 : 7000;
+  shakerFilter.frequency.rampTo(Math.min(16000, shakerFreq), 0.5);
+  shakerFilter.Q.rampTo(emotions.anger > 0.3 ? 0.8 + emotions.anger * 4 : 3, 0.5);
+  const shakerVol = emotions.sadness > 0.4
+    ? -40 + (1 - emotions.sadness) * 22
+    : emotions.anger > 0.3 ? -16 + emotions.anger * 10
+    : emotions.flow > 0.2 ? -26 + emotions.flow * 8 : -34;
+  shaker.volume.rampTo(Math.min(-6, shakerVol), 0.5);
 
   // --- Fear ---
   fearSynth.volume.rampTo(emotions.fear > 0.25 ? -20 + emotions.fear * 12 : -40, 1);
@@ -1230,6 +1391,9 @@ function detectLoop(poseLandmarker, video) {
     if (debugVisible) {
       document.getElementById("d-tracking").textContent = "yes";
       document.getElementById("d-tracking").style.color = "#4d8";
+      document.getElementById("d-scene").textContent = currentScene;
+      document.getElementById("d-armed").textContent = sceneChangeArmed ? "YES" : "no";
+      document.getElementById("d-armed").style.color = sceneChangeArmed ? "#ff8" : "#555";
     }
   } else {
     // No pose detected — clear orbs and show tracking status
