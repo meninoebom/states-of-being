@@ -73,6 +73,17 @@
   }
   #start-btn:hover { color: #fff; border-color: #666; }
 
+  /* --- About Button (visible during experience) --- */
+  #about-btn {
+    position: fixed; top: 16px; left: 16px; z-index: 60;
+    width: 36px; height: 36px; border-radius: 50%;
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.4); font-size: 18px; cursor: pointer;
+    display: none; align-items: center; justify-content: center;
+    transition: all 0.3s; font-family: serif;
+  }
+  #about-btn:hover { background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.7); }
+
   /* --- Debug Overlay --- */
   #debug {
     position: fixed; top: 20px; left: 20px; z-index: 50;
@@ -230,6 +241,8 @@
   </div>
   <button id="start-btn" onclick="startExperience()">Begin</button>
 </div>
+
+<button id="about-btn" onclick="showAbout()">ⓘ</button>
 
 <div id="debug">
   <div class="section-label">emotions</div>
@@ -1596,8 +1609,13 @@ function drawOrbs(landmarks) {
 let frameCount = 0;
 let lastFpsTime = Date.now();
 
+let experiencePaused = false;
+let experienceStarted = false;
+let storedPoseLandmarker = null;
+let storedVideo = null;
 let detectLogOnce = false;
 function detectLoop(poseLandmarker, video) {
+  if (experiencePaused) return;
   const now = performance.now();
 
   if (!detectLogOnce) {
@@ -1665,6 +1683,18 @@ document.addEventListener("keydown", (e) => {
 
 window.startExperience = async function() {
   const startBtn = document.getElementById("start-btn");
+
+  // Resume from about page
+  if (experienceStarted) {
+    document.getElementById("start-screen").style.display = "none";
+    document.getElementById("about-btn").style.display = "flex";
+    experiencePaused = false;
+    Tone.Transport.start();
+    Tone.Destination.volume.value = 0;
+    detectLoop(storedPoseLandmarker, storedVideo);
+    return;
+  }
+
   startBtn.textContent = "Loading...";
   startBtn.disabled = true;
 
@@ -1673,15 +1703,30 @@ window.startExperience = async function() {
     await Tone.start();
     console.log("Audio started. Loading MediaPipe...");
     const { poseLandmarker, video } = await initPose();
+    storedPoseLandmarker = poseLandmarker;
+    storedVideo = video;
     console.log("MediaPipe ready. Starting music...");
     startMusic();
     document.getElementById("start-screen").style.display = "none";
+    document.getElementById("about-btn").style.display = "flex";
+    experienceStarted = true;
     console.log("Starting detect loop...");
     detectLoop(poseLandmarker, video);
   } catch (err) {
     startBtn.textContent = "Error: " + err.message;
     console.error(err);
   }
+};
+
+window.showAbout = function() {
+  experiencePaused = true;
+  Tone.Transport.pause();
+  Tone.Destination.volume.value = -Infinity;
+  document.getElementById("start-screen").style.display = "flex";
+  document.getElementById("about-btn").style.display = "none";
+  const startBtn = document.getElementById("start-btn");
+  startBtn.textContent = "Resume";
+  startBtn.disabled = false;
 };
 </script>
 </body>
