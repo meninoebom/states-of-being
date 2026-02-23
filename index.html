@@ -36,7 +36,7 @@
   }
   #start-screen .intro {
     font-size: 14px; color: #777; margin-bottom: 40px;
-    max-width: 620px; text-align: left; line-height: 1.8;
+    max-width: 960px; text-align: left; line-height: 1.8;
   }
   #start-screen .intro p {
     margin-bottom: 16px;
@@ -44,8 +44,16 @@
   #start-screen .intro strong {
     color: #aaa;
   }
+  .tables-row {
+    display: flex; gap: 24px; width: 100%;
+  }
+  .tables-row > div { flex: 1; }
+  .table-title {
+    font-size: 11px; color: #666; text-transform: uppercase;
+    letter-spacing: 2px; margin-bottom: 6px; font-weight: 600;
+  }
   #start-screen table {
-    border-collapse: collapse; width: 100%; margin: 8px 0;
+    border-collapse: collapse; width: 100%; margin: 0 0 8px;
     font-size: 13px;
   }
   #start-screen th {
@@ -190,28 +198,35 @@
 <div id="start-screen">
   <h1>States of Being</h1>
   <div class="intro">
-    <p>A webcam tracks 33 points on your body 30 times per second. From these points we compute eight movement primitives — raw physical measurements of how you're moving. These primitives combine through weighted formulas into five emotional states, which drive the music and color you see and hear. The system continuously adapts to your personal range of movement — no calibration needed.</p>
+    <p>A webcam tracks 33 points on your body 30 times per second. From these points we compute eight movement primitives — raw physical measurements of how you're moving. These combine through weighted formulas into five emotional states that drive music and color in real time. The system adapts to <em>your</em> range — no calibration needed.</p>
 
-    <table>
-      <tr><th>Primitive</th><th>How It's Measured</th></tr>
-      <tr><td>Velocity</td><td>Average speed of all tracked joints, frame to frame</td></tr>
-      <tr><td>Jerkiness</td><td>Third derivative of position — how abruptly your speed changes</td></tr>
-      <tr><td>Contraction</td><td>Average distance of limbs from your body's center of mass</td></tr>
-      <tr><td>Verticality</td><td>Height of head and shoulders relative to hips</td></tr>
-      <tr><td>Symmetry</td><td>Positional similarity between left and right limbs</td></tr>
-      <tr><td>Coherence</td><td>Timing similarity of left vs right side velocity — are both sides moving together?</td></tr>
-      <tr><td>Ankle Spread</td><td>Horizontal distance between ankles — stance width</td></tr>
-      <tr><td>Wrist Spread</td><td>Horizontal distance between wrists — arm reach</td></tr>
-    </table>
-
-    <table>
-      <tr><th>Emotion</th><th>Primitive Recipe</th><th>Sound &amp; Color</th></tr>
-      <tr><td>Flow</td><td>High smoothness ratio (velocity &gt;&gt; jerkiness) + open posture + upright + symmetric</td><td>Jazz chords, kalimba plucks, blue-teal</td></tr>
-      <tr><td>Anger</td><td>High jerkiness (the only gate) + low coherence. Speed alone cannot trigger it</td><td>Distorted pad, chromatic stabs, chaotic kalimba, deep red</td></tr>
-      <tr><td>Stillness</td><td>Low velocity + high contraction + low verticality</td><td>Building drone, oppressive bass, bleaching white</td></tr>
-      <tr><td>Fear</td><td>High jerkiness relative to velocity — trembling, flinching</td><td>Tremolo stabs, sickly yellow-green</td></tr>
-      <tr><td>Craving</td><td>Moderate velocity + low jerkiness + high wrist spread (reaching out)</td><td>Warm amber tones</td></tr>
-    </table>
+    <div class="tables-row">
+      <div>
+        <div class="table-title">Primitives</div>
+        <table>
+          <tr><th>Metric</th><th>How It's Measured</th></tr>
+          <tr><td>Velocity</td><td>Average joint speed, frame to frame</td></tr>
+          <tr><td>Jerkiness</td><td>3rd derivative of position — abrupt speed changes</td></tr>
+          <tr><td>Contraction</td><td>Limb distance from center of mass</td></tr>
+          <tr><td>Verticality</td><td>Head/shoulder height relative to hips</td></tr>
+          <tr><td>Symmetry</td><td>Positional match of left vs right limbs</td></tr>
+          <tr><td>Coherence</td><td>Timing match of left vs right velocity</td></tr>
+          <tr><td>Ankle Spread</td><td>Horizontal distance between ankles</td></tr>
+          <tr><td>Wrist Spread</td><td>Horizontal distance between wrists</td></tr>
+        </table>
+      </div>
+      <div>
+        <div class="table-title">Emotions</div>
+        <table>
+          <tr><th>State</th><th>Recipe</th><th>Response</th></tr>
+          <tr><td>Flow</td><td>Smooth + open + upright</td><td>Jazz chords, kalimba, blue-teal</td></tr>
+          <tr><td>Anger</td><td>Jerky + incoherent (speed alone can't trigger it)</td><td>Distorted pad, chromatic stabs, red</td></tr>
+          <tr><td>Stillness</td><td>Slow + contracted + slumped</td><td>Drone, oppressive bass, white</td></tr>
+          <tr><td>Fear</td><td>High jerk relative to speed</td><td>Tremolo stabs, yellow-green</td></tr>
+          <tr><td>Craving</td><td>Moderate + reaching + smooth</td><td>Warm amber tones</td></tr>
+        </table>
+      </div>
+    </div>
   </div>
   <button id="start-btn" onclick="startExperience()">Begin</button>
 </div>
