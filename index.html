@@ -270,7 +270,8 @@
 
     /* Experience HUD */
     .hud-bar { height: 80px !important; }
-    .hud-label { font-size: 12px !important; letter-spacing: 1px !important; }
+    .hud-label { font-size: 9px !important; letter-spacing: 1px !important; transition: font-size 0.3s ease, opacity 0.3s ease; }
+    .hud-label.dominant-label { font-size: 13px !important; }
     .hud-track { height: 50px !important; }
     #about-btn { width: 44px; height: 44px; font-size: 20px; }
   }
@@ -1635,6 +1636,15 @@ function updateEmotionBar() {
   });
   // Top: primitives — label intensity proportional to value
   if (currentPrimitives) {
+    // Find dominant primitive for mobile abbreviation
+    let maxPrimVal = -1, maxPrimName = '';
+    primCols.forEach(el => {
+      const val = currentPrimitives[el.dataset.prim] || 0;
+      if (val > maxPrimVal) { maxPrimVal = val; maxPrimName = el.dataset.prim; }
+    });
+    const isMobile = window.innerWidth <= 768;
+    const primAbbrev = { velocity:'VEL', jerkiness:'JRK', contraction:'CON', verticality:'VRT', symmetry:'SYM', coherence:'COH', ankleSpread:'ANK', wristSpread:'WRS' };
+    const primFull = { velocity:'velocity', jerkiness:'jerkiness', contraction:'contract', verticality:'vertical', symmetry:'symmetry', coherence:'coherence', ankleSpread:'ankles', wristSpread:'wrists' };
     primCols.forEach(el => {
       const name = el.dataset.prim;
       const val = currentPrimitives[name] || 0;
@@ -1642,6 +1652,37 @@ function updateEmotionBar() {
       const label = el.querySelector('.hud-label');
       label.style.opacity = 0.25 + val * 0.65;
       label.style.fontWeight = val > 0.5 ? 700 : 400;
+      if (isMobile) {
+        const isDom = name === maxPrimName;
+        label.textContent = isDom ? primFull[name] : primAbbrev[name];
+        isDom ? label.classList.add('dominant-label') : label.classList.remove('dominant-label');
+      } else {
+        label.textContent = primFull[name];
+        label.classList.remove('dominant-label');
+      }
+    });
+  }
+
+  // Mobile abbreviation for emotions
+  const isMobileEmo = window.innerWidth <= 768;
+  if (isMobileEmo) {
+    const emoAbbrev = { anger:'ANG', sadness:'SAD', fear:'FER', craving:'CRV', flow:'FLW' };
+    const emoFull = { anger:'anger', sadness:'stillness', fear:'fear', craving:'craving', flow:'flow' };
+    let maxEmoVal = -1, maxEmoName = '';
+    emotionCols.forEach(el => {
+      const val = emotions[el.dataset.emotion] || 0;
+      if (val > maxEmoVal) { maxEmoVal = val; maxEmoName = el.dataset.emotion; }
+    });
+    emotionCols.forEach(el => {
+      const name = el.dataset.emotion;
+      const label = el.querySelector('.hud-label');
+      const isDom = name === maxEmoName;
+      label.textContent = isDom ? emoFull[name] : emoAbbrev[name];
+      isDom ? label.classList.add('dominant-label') : label.classList.remove('dominant-label');
+    });
+  } else {
+    emotionCols.forEach(el => {
+      el.querySelector('.hud-label').classList.remove('dominant-label');
     });
   }
 }
