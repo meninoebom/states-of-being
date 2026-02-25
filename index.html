@@ -270,8 +270,7 @@
 
     /* Experience HUD */
     .hud-bar { height: 80px !important; }
-    .hud-label { font-size: 9px !important; letter-spacing: 1px !important; transition: font-size 0.3s ease, opacity 0.3s ease; }
-    .hud-label.dominant-label { font-size: 13px !important; }
+    .hud-label { font-size: 10px !important; letter-spacing: 1px !important; font-weight: 400 !important; transition: opacity 0.2s ease; }
     .hud-track { height: 50px !important; }
     #about-btn { width: 44px; height: 44px; font-size: 20px; }
   }
@@ -1619,70 +1618,69 @@ resizeOrbCanvas();
 
 const emotionCols = document.querySelectorAll('#emotion-bar .hud-col');
 const primCols = document.querySelectorAll('#primitives-bar .hud-col');
+
+// Mobile: set abbreviated labels once, not every frame
+let mobileLabelsInitialized = false;
+const primAbbrev = { velocity:'VEL', jerkiness:'JRK', contraction:'CON', verticality:'VRT', symmetry:'SYM', coherence:'COH', ankleSpread:'ANK', wristSpread:'WRS' };
+const primFull = { velocity:'velocity', jerkiness:'jerkiness', contraction:'contract', verticality:'vertical', symmetry:'symmetry', coherence:'coherence', ankleSpread:'ankles', wristSpread:'wrists' };
+const emoAbbrev = { anger:'ANG', sadness:'SAD', fear:'FER', craving:'CRV', flow:'FLW' };
+const emoFull = { anger:'anger', sadness:'stillness', fear:'fear', craving:'craving', flow:'flow' };
+
+function initMobileLabels() {
+  primCols.forEach(el => {
+    el.querySelector('.hud-label').textContent = primAbbrev[el.dataset.prim];
+  });
+  emotionCols.forEach(el => {
+    el.querySelector('.hud-label').textContent = emoAbbrev[el.dataset.emotion];
+  });
+  mobileLabelsInitialized = true;
+}
+
 function updateEmotionBar() {
-  // Bottom: emotions — label intensity proportional to value
+  const isMobile = window.innerWidth <= 768;
+
+  // Initialize mobile labels once (or when crossing threshold)
+  if (isMobile && !mobileLabelsInitialized) {
+    initMobileLabels();
+  } else if (!isMobile && mobileLabelsInitialized) {
+    // Crossed back to desktop — restore full names and reset flag
+    primCols.forEach(el => {
+      el.querySelector('.hud-label').textContent = primFull[el.dataset.prim];
+    });
+    emotionCols.forEach(el => {
+      el.querySelector('.hud-label').textContent = emoFull[el.dataset.emotion];
+    });
+    mobileLabelsInitialized = false;
+  }
+
+  // Bottom: emotions
   emotionCols.forEach(el => {
     const name = el.dataset.emotion;
     const val = emotions[name] || 0;
     el.querySelector('.hud-fill').style.height = (val * 100) + '%';
     const label = el.querySelector('.hud-label');
     label.style.opacity = 0.25 + val * 0.75;
-    label.style.fontWeight = val > 0.5 ? 900 : val > 0.2 ? 600 : 400;
+    if (!isMobile) {
+      label.style.fontWeight = val > 0.5 ? 900 : val > 0.2 ? 600 : 400;
+    }
     if (name === currentDominant && val > 0.05) {
       el.classList.add('dominant');
     } else {
       el.classList.remove('dominant');
     }
   });
-  // Top: primitives — label intensity proportional to value
+
+  // Top: primitives
   if (currentPrimitives) {
-    // Find dominant primitive for mobile abbreviation
-    let maxPrimVal = -1, maxPrimName = '';
-    primCols.forEach(el => {
-      const val = currentPrimitives[el.dataset.prim] || 0;
-      if (val > maxPrimVal) { maxPrimVal = val; maxPrimName = el.dataset.prim; }
-    });
-    const isMobile = window.innerWidth <= 768;
-    const primAbbrev = { velocity:'VEL', jerkiness:'JRK', contraction:'CON', verticality:'VRT', symmetry:'SYM', coherence:'COH', ankleSpread:'ANK', wristSpread:'WRS' };
-    const primFull = { velocity:'velocity', jerkiness:'jerkiness', contraction:'contract', verticality:'vertical', symmetry:'symmetry', coherence:'coherence', ankleSpread:'ankles', wristSpread:'wrists' };
     primCols.forEach(el => {
       const name = el.dataset.prim;
       const val = currentPrimitives[name] || 0;
       el.querySelector('.hud-fill').style.height = (Math.min(1, val) * 100) + '%';
       const label = el.querySelector('.hud-label');
       label.style.opacity = 0.25 + val * 0.65;
-      label.style.fontWeight = val > 0.5 ? 700 : 400;
-      if (isMobile) {
-        const isDom = name === maxPrimName;
-        label.textContent = isDom ? primFull[name] : primAbbrev[name];
-        isDom ? label.classList.add('dominant-label') : label.classList.remove('dominant-label');
-      } else {
-        label.textContent = primFull[name];
-        label.classList.remove('dominant-label');
+      if (!isMobile) {
+        label.style.fontWeight = val > 0.5 ? 700 : 400;
       }
-    });
-  }
-
-  // Mobile abbreviation for emotions
-  const isMobileEmo = window.innerWidth <= 768;
-  if (isMobileEmo) {
-    const emoAbbrev = { anger:'ANG', sadness:'SAD', fear:'FER', craving:'CRV', flow:'FLW' };
-    const emoFull = { anger:'anger', sadness:'stillness', fear:'fear', craving:'craving', flow:'flow' };
-    let maxEmoVal = -1, maxEmoName = '';
-    emotionCols.forEach(el => {
-      const val = emotions[el.dataset.emotion] || 0;
-      if (val > maxEmoVal) { maxEmoVal = val; maxEmoName = el.dataset.emotion; }
-    });
-    emotionCols.forEach(el => {
-      const name = el.dataset.emotion;
-      const label = el.querySelector('.hud-label');
-      const isDom = name === maxEmoName;
-      label.textContent = isDom ? emoFull[name] : emoAbbrev[name];
-      isDom ? label.classList.add('dominant-label') : label.classList.remove('dominant-label');
-    });
-  } else {
-    emotionCols.forEach(el => {
-      el.querySelector('.hud-label').classList.remove('dominant-label');
     });
   }
 }
