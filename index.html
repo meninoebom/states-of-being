@@ -145,10 +145,43 @@
   }
   #song-loader label:hover { color: #aaa; border-color: #555; }
   #song-loader input { display: none; }
-  #song-name {
+  #song-status {
     margin-top: 10px; font-size: 12px; color: #4d8;
     letter-spacing: 1px; min-height: 18px;
   }
+  #preview-grid {
+    display: none; max-width: 960px; width: 100%; margin-bottom: 24px;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px;
+  }
+  #preview-grid.visible { display: grid; }
+  .loop-category {
+    background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px; padding: 16px;
+  }
+  .loop-category h3 {
+    font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
+    color: #555; margin: 0 0 12px 0;
+  }
+  .loop-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .loop-item.selected { color: #ccc; }
+  .loop-item.unselected { color: #444; }
+  .loop-play-btn {
+    width: 26px; height: 26px; border-radius: 50%;
+    border: 1px solid #333; background: transparent;
+    color: #888; cursor: pointer; font-size: 11px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .loop-play-btn:hover { color: #fff; border-color: #666; }
+  .loop-label { font-size: 12px; flex: 1; }
+  .loop-bars { font-size: 10px; color: #555; }
+  .loop-toggle {
+    width: 14px; height: 14px; border-radius: 3px;
+    border: 1px solid #444; background: transparent; cursor: pointer;
+  }
+  .loop-toggle.on { background: #4d8; border-color: #4d8; }
 
   /* --- About Button (visible during experience) --- */
   #about-btn {
@@ -330,8 +363,6 @@
     </div>
   </div>
 
-  <button id="start-btn" onclick="startExperience()">Begin</button>
-
   <div class="detail-toggle" onclick="this.querySelector('.detail-arrow').classList.toggle('open'); this.nextElementSibling.classList.toggle('open');">
     <span class="detail-arrow">&#9654;</span> How it works in detail
   </div>
@@ -367,10 +398,11 @@
     </div>
   </div>
   <div id="song-loader">
-    <label for="song-input">Load Song Folder</label>
-    <input type="file" id="song-input" webkitdirectory multiple>
-    <div id="song-name"></div>
+    <label for="song-input">Blend Your Song</label>
+    <input type="file" id="song-input" accept="audio/*">
+    <div id="song-status"></div>
   </div>
+  <div id="preview-grid"></div>
   <button id="start-btn" onclick="startExperience()">Begin</button>
 </div>
 
@@ -1322,34 +1354,107 @@ const sampleEngine = {
   }
 };
 
-// --- Song folder loader ---
+// --- Song upload + processing ---
+const BACKEND_URL = window.location.hostname === 'localhost'
+  ? 'http://localhost:8000'
+  : 'https://sob-backend.up.railway.app'; // Update after Railway deploy
+
+let previewAudio = null;
+
 document.getElementById('song-input').addEventListener('change', async (e) => {
-  const files = Array.from(e.target.files);
-  if (files.length === 0) return;
-  const perfFile = files.find(f => f.name.endsWith('.perf.json'));
-  if (!perfFile) {
-    document.getElementById('song-name').textContent = 'No .perf.json found';
-    document.getElementById('song-name').style.color = '#f44';
-    return;
-  }
-  const audioFiles = files.filter(f => f.name.endsWith('.wav') || f.name.endsWith('.mp3'));
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const status = document.getElementById('song-status');
+  const startBtn = document.getElementById('start-btn');
+
   try {
-    const text = await perfFile.text();
-    const perfJson = JSON.parse(text);
-    document.getElementById('song-name').textContent = `Loading: ${perfFile.name}...`;
-    document.getElementById('song-name').style.color = '#aa8';
-    await sampleEngine.load(perfJson, audioFiles);
-    document.getElementById('song-name').textContent = `${perfJson.name || 'Song loaded'} (${audioFiles.length} samples)`;
-    document.getElementById('song-name').style.color = '#4d8';
-    blendMode = 'blended';
-    const blendEl = document.getElementById('d-blend');
-    if (blendEl) blendEl.textContent = blendMode;
+    status.textContent = `Uploading ${file.name}...`;
+    status.style.color = '#aa8';
+    startBtn.disabled = true;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    status.textContent = 'Separating stems & analyzing beats (~30s)...';
+
+    const response = await fetch(`${BACKEND_URL}/api/process`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ detail: 'Processing failed' }));
+      throw new Error(err.detail || 'Processing failed');
+    }
+
+    const result = await response.json();
+    window._songResult = result;
+
+    status.textContent = `${result.total_loops} loops at ${result.bpm} BPM`;
+    status.style.color = '#4d8';
+
+    showPreviewGrid(result);
+    startBtn.disabled = false;
   } catch (err) {
-    document.getElementById('song-name').textContent = `Error: ${err.message}`;
-    document.getElementById('song-name').style.color = '#f44';
-    console.error('Song load error:', err);
+    status.textContent = `Error: ${err.message}`;
+    status.style.color = '#f44';
+    startBtn.disabled = false;
   }
 });
+
+function showPreviewGrid(result) {
+  const grid = document.getElementById('preview-grid');
+  grid.innerHTML = '';
+  grid.classList.add('visible');
+
+  const byCategory = {};
+  for (const track of result.tracks) {
+    if (!byCategory[track.category]) byCategory[track.category] = [];
+    byCategory[track.category].push(track);
+  }
+
+  const labels = {
+    foundation: 'Foundation', groove: 'Groove', bass: 'Bass',
+    harmonic_bed: 'Harmony', hook: 'Hook', texture: 'Texture', accent: 'Accent'
+  };
+
+  for (const [cat, tracks] of Object.entries(byCategory)) {
+    const col = document.createElement('div');
+    col.className = 'loop-category';
+    col.innerHTML = `<h3>${labels[cat] || cat}</h3>`;
+
+    for (const track of tracks) {
+      const item = document.createElement('div');
+      item.className = `loop-item ${track.selected ? 'selected' : 'unselected'}`;
+      item.innerHTML = `
+        <button class="loop-play-btn" title="Preview">&#9654;</button>
+        <span class="loop-label">${track.bars} bar${track.bars > 1 ? 's' : ''}</span>
+        <span class="loop-bars">${track.mode}</span>
+        <div class="loop-toggle ${track.selected ? 'on' : ''}"></div>
+      `;
+
+      item.querySelector('.loop-play-btn').addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        if (previewAudio) { previewAudio.pause(); previewAudio = null; }
+        previewAudio = new Audio(`${BACKEND_URL}${track.url}`);
+        previewAudio.play();
+      });
+
+      item.querySelector('.loop-toggle').addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        const toggle = ev.currentTarget;
+        toggle.classList.toggle('on');
+        item.classList.toggle('selected');
+        item.classList.toggle('unselected');
+        track.selected = toggle.classList.contains('on');
+      });
+
+      col.appendChild(item);
+    }
+    grid.appendChild(col);
+  }
+}
 
 // =============================================================================
 // CHORD & NOTE POOLS
@@ -2120,9 +2225,41 @@ window.startExperience = async function() {
   startBtn.textContent = "Loading...";
   startBtn.disabled = true;
 
+  // Stop preview audio if playing
+  if (previewAudio) { previewAudio.pause(); previewAudio = null; }
+  // Hide preview grid during experience
+  document.getElementById('preview-grid').classList.remove('visible');
+
   try {
     console.log("Starting audio...");
     await Tone.start();
+
+    // If a song was processed, load selected loops into sampleEngine
+    if (window._songResult) {
+      const result = window._songResult;
+      const selectedTracks = result.tracks.filter(t => t.selected);
+      if (selectedTracks.length > 0) {
+        const perfJson = {
+          name: result.name,
+          bpm: result.bpm,
+          sample_tracks: selectedTracks.map(t => ({
+            file: t.file, category: t.category, mode: t.mode, volume: t.volume,
+          })),
+        };
+        const audioFiles = await Promise.all(
+          selectedTracks.map(async (t) => {
+            const resp = await fetch(`${BACKEND_URL}${t.url}`);
+            const blob = await resp.blob();
+            return new File([blob], t.file, { type: 'audio/mpeg' });
+          })
+        );
+        await sampleEngine.load(perfJson, audioFiles);
+        blendMode = 'blended';
+        const blendEl = document.getElementById('d-blend');
+        if (blendEl) blendEl.textContent = blendMode;
+      }
+    }
+
     console.log("Audio started. Loading MediaPipe...");
     const { poseLandmarker, video } = await initPose();
     storedPoseLandmarker = poseLandmarker;
