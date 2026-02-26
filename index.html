@@ -1438,7 +1438,7 @@ function showPreviewGrid(result) {
         ev.stopPropagation();
         if (previewAudio) { previewAudio.pause(); previewAudio = null; }
         previewAudio = new Audio(`${BACKEND_URL}${track.url}`);
-        previewAudio.play();
+        previewAudio.play().catch(() => {});
       });
 
       item.querySelector('.loop-toggle').addEventListener('click', (ev) => {
@@ -2249,8 +2249,9 @@ window.startExperience = async function() {
         const audioFiles = await Promise.all(
           selectedTracks.map(async (t) => {
             const resp = await fetch(`${BACKEND_URL}${t.url}`);
+            if (!resp.ok) throw new Error(`Failed to load clip: ${t.file} (${resp.status})`);
             const blob = await resp.blob();
-            return new File([blob], t.file, { type: 'audio/mpeg' });
+            return new File([blob], t.file, { type: 'audio/wav' });
           })
         );
         await sampleEngine.load(perfJson, audioFiles);

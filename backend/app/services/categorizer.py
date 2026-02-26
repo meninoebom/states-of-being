@@ -1,12 +1,8 @@
-"""Map loops to sampleEngine categories based on stem origin and audio characteristics."""
+"""Categorize loops by musical role (foundation, groove, hook, etc.) based on stem origin and energy."""
 
 from statistics import median
 
 from .loop_chopper import Loop
-
-VALID_CATEGORIES = frozenset({
-    "foundation", "groove", "bass", "harmonic_bed", "hook", "texture", "accent",
-})
 
 
 def categorize_loops(loops_by_stem: dict[str, list[Loop]]) -> list[Loop]:

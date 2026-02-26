@@ -1,8 +1,11 @@
 """Beat and downbeat detection using madmom."""
 
+import logging
 from dataclasses import dataclass
 
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -14,7 +17,10 @@ class BeatGrid:
 
 
 def analyze_beats(audio_path: str) -> BeatGrid:
-    """Detect beats, downbeats, BPM using madmom. Falls back to 120 BPM / 4/4."""
+    """Detect beats, downbeats, BPM using madmom.
+
+    Falls back to 120 BPM, 4/4, and empty beat grids on any error.
+    """
     try:
         from madmom.features.beats import RNNBeatProcessor
         from madmom.features.downbeats import DBNDownBeatTrackingProcessor
@@ -60,5 +66,5 @@ def analyze_beats(audio_path: str) -> BeatGrid:
         )
 
     except Exception:
-        # Fallback: 120 BPM, 4/4, empty grid
+        logger.warning("Beat analysis failed, using 120 BPM fallback", exc_info=True)
         return BeatGrid(bpm=120.0, beats=[], downbeats=[], time_signature=4)

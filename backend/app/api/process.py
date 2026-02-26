@@ -1,5 +1,6 @@
 """Main processing endpoint — orchestrates the full song blender pipeline."""
 
+import logging
 import shutil
 import uuid
 from pathlib import Path
@@ -8,6 +9,7 @@ from fastapi import APIRouter, HTTPException, UploadFile
 
 from app.config import settings
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 SUPPORTED_EXTENSIONS = {".mp3", ".wav", ".m4a", ".flac", ".ogg"}
@@ -19,20 +21,18 @@ async def process_song(file: UploadFile):
 
     Pipeline: upload -> stem separation -> beat analysis -> phrase detection -> chop -> categorize -> auto-select
     """
-    # Validate file extension
     if not file.filename:
         raise HTTPException(400, "Filename is required")
     ext = Path(file.filename).suffix.lower()
     if ext not in SUPPORTED_EXTENSIONS:
         raise HTTPException(400, f"Unsupported format. Accepted: {', '.join(sorted(SUPPORTED_EXTENSIONS))}")
 
-    # Validate file size
     contents = await file.read()
     max_bytes = settings.MAX_UPLOAD_MB * 1024 * 1024
     if len(contents) > max_bytes:
         raise HTTPException(413, f"File exceeds {settings.MAX_UPLOAD_MB}MB limit")
 
-    # Late import to avoid circular dependency at module level
+    # TEMP_DIR is initialized at app startup in main.py
     from app.main import TEMP_DIR
 
     job_id = uuid.uuid4().hex[:8]
@@ -40,11 +40,9 @@ async def process_song(file: UploadFile):
     job_dir.mkdir(parents=True)
 
     try:
-        # Save uploaded file
         input_path = job_dir / f"input{ext}"
         input_path.write_bytes(contents)
 
-        # Import service functions (built by other agents)
         from app.services.stem_separator import separate_stems
         from app.services.beat_analyzer import analyze_beats
         from app.services.loop_chopper import chop_stem, find_phrase_boundaries
@@ -75,11 +73,10 @@ async def process_song(file: UploadFile):
 
         # 5. Categorize and auto-select
         categorized = categorize_loops(loops_by_stem)
-        selected = auto_select(categorized)
+        all_tracks = auto_select(categorized)
 
-        # Build response — add clip URLs to each track
         song_name = Path(file.filename).stem.replace("_", " ").replace("-", " ").title()
-        for track in selected:
+        for track in all_tracks:
             track["url"] = f"/clips/{job_id}/{track['file']}"
 
         return {
@@ -87,12 +84,13 @@ async def process_song(file: UploadFile):
             "name": song_name,
             "bpm": beat_grid.bpm,
             "time_signature": beat_grid.time_signature,
-            "total_loops": len(selected),
-            "tracks": selected,
+            "total_loops": len(all_tracks),
+            "tracks": all_tracks,
         }
 
     except HTTPException:
         raise
     except Exception as e:
+        logger.exception("Processing failed for job %s", job_id)
         shutil.rmtree(job_dir, ignore_errors=True)
-        raise HTTPException(500, f"Processing failed: {e}")
+        raise HTTPException(500, "Processing failed — please try again or use a different file")

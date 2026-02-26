@@ -36,18 +36,19 @@ def health():
 
 
 def _cleanup_loop():
-    """Delete files older than 1 hour from the temp directory every 10 minutes."""
+    """Delete job directories older than 1 hour, checked every 10 minutes."""
+    import logging
+    import shutil
+    logger = logging.getLogger(__name__)
     while True:
         time.sleep(600)
         cutoff = time.time() - 3600
         try:
             for entry in Path(TEMP_DIR).iterdir():
                 if entry.is_dir() and entry.stat().st_mtime < cutoff:
-                    import shutil
-
                     shutil.rmtree(entry, ignore_errors=True)
         except Exception:
-            pass
+            logger.warning("Temp cleanup failed", exc_info=True)
 
 
 _cleanup_thread = threading.Thread(target=_cleanup_loop, daemon=True)
