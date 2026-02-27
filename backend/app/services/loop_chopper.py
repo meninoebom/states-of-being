@@ -67,8 +67,10 @@ def chop_stem(
 
     Returns a list of Loop objects with energy and bar counts calculated.
     """
-    y, sr = librosa.load(stem_path, sr=22050, mono=True)
-    duration = librosa.get_duration(y=y, sr=sr)
+    y, sr = librosa.load(stem_path, sr=None, mono=False)
+    is_stereo = y.ndim == 2
+    num_samples = y.shape[-1]
+    duration = num_samples / sr
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
 
@@ -87,13 +89,13 @@ def chop_stem(
             continue
 
         start_sample = int(start * sr)
-        end_sample = min(int(end * sr), len(y))
-        segment = y[start_sample:end_sample]
+        end_sample = min(int(end * sr), num_samples)
+        segment = y[..., start_sample:end_sample]  # works for both mono and stereo
 
-        # RMS energy normalized 0-1
-        rms = float(np.sqrt(np.mean(segment**2)))
-        max_possible_rms = 1.0
-        energy = min(rms / max_possible_rms, 1.0)
+        # RMS energy on mono mixdown
+        mono_seg = segment.mean(axis=0) if is_stereo else segment
+        rms = float(np.sqrt(np.mean(mono_seg**2)))
+        energy = min(rms, 1.0)
 
         # Count bars in this segment
         bars = sum(1 for db in downbeats if start <= db < end)
@@ -103,7 +105,9 @@ def chop_stem(
 
         filename = f"{stem_name}_loop_{i + 1}.wav"
         filepath = output_path / filename
-        sf.write(str(filepath), segment, sr)
+        # soundfile expects (samples, channels) for stereo
+        write_data = segment.T if is_stereo else segment
+        sf.write(str(filepath), write_data, sr)
 
         loops.append(Loop(
             file=filename,
