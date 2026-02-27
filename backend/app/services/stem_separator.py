@@ -31,18 +31,22 @@ async def separate_stems(audio_path: str, output_dir: str) -> dict[str, str]:
     except Exception as e:
         raise RuntimeError(f"Stem separation service error: {type(e).__name__}") from e
 
-    # Replicate Demucs returns a dict of stem_name -> URL,
-    # or sometimes a flat URL string per stem. Normalize both.
+    # Replicate returns dict of stem_name -> URL (str or FileOutput object).
+    # Convert all values to plain URL strings.
     stem_urls: dict[str, str] = {}
     if isinstance(output, dict):
-        stem_urls = {k: v for k, v in output.items() if isinstance(v, str)}
+        for k, v in output.items():
+            url = str(v)
+            if url.startswith("http"):
+                stem_urls[k] = url
     elif isinstance(output, list):
-        # Fallback: positional list matching STEM_NAMES order
-        for name, url in zip(STEM_NAMES, output):
-            if isinstance(url, str):
+        for name, v in zip(STEM_NAMES, output):
+            url = str(v)
+            if url.startswith("http"):
                 stem_urls[name] = url
 
     if not stem_urls:
+        logger.error("Unexpected Demucs output: %s", output)
         raise RuntimeError(f"Unexpected Demucs output format: {type(output)}")
 
     result: dict[str, str] = {}
