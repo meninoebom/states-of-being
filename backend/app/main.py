@@ -13,6 +13,10 @@ from fastapi.staticfiles import StaticFiles
 from app.api.process import router as process_router
 from app.config import settings
 
+# Replicate SDK reads REPLICATE_API_TOKEN from env, not from our settings.
+# Ensure it's set in the process environment (pydantic-settings only loads into the class).
+os.environ.setdefault("REPLICATE_API_TOKEN", settings.REPLICATE_API_TOKEN)
+
 TEMP_DIR = tempfile.mkdtemp(prefix="sob_")
 
 app = FastAPI(title="Song Blender API")
