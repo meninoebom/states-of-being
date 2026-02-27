@@ -22,6 +22,25 @@ The Replicate models (Demucs for stems, allin1 for song structure) are pre-train
 **Root cause:** We slice exactly at allin1's section boundary with no awareness of vocal activity.
 **Fix approach:** Add a "snap to silence" step for vocal stems only. Near each cut point (±500ms window), find the nearest moment of low vocal energy or zero-crossing and snap the cut there. librosa's `zero_crossings()` or RMS energy in a sliding window can find natural pauses. This should only apply to the vocals stem — drums and bass can cut anywhere.
 
+## Solved: Vocal Phrase Extraction via VAD (2026-02-27)
+
+**Problem:** Section-based vocal chopping produced 16-second loops with huge silent gaps, or cut mid-word. A section with a repeating chant would be one giant loop instead of individual usable phrases.
+**Solution:** RMS-based Voice Activity Detection on the vocal stem. Compute per-frame RMS (20ms), smooth with 100ms rolling average, threshold at 0.008, group consecutive active frames into regions, merge gaps < 300ms (breath pauses). Each region > 1.0s becomes a phrase loop.
+**Key insight:** Vocals need fundamentally different chopping than instruments. Instruments can cut at section boundaries. Vocals must cut at silence between phrases.
+**Parameters that worked:** `silence_threshold=0.008`, `min_gap_sec=0.3`, `min_phrase_sec=1.0`, `smooth_window=5` (100ms).
+**Result:** 4 clean vocal loops (1 long passage + 3 individual chants) vs 15 messy section-based loops before. Each phrase starts and ends on silence.
+
+## Solved: Directional Snap-to-Silence (2026-02-27)
+
+**Problem:** Symmetric snap (±500ms) found silence *before* the last word instead of *after*, cutting phrases short.
+**Solution:** End cuts search forward only (let the phrase finish), start cuts search backward only (find quiet before phrase starts). Window: 0.8s.
+**Lesson:** Direction matters more than window size for snap-to-silence.
+
+## Solved: Front-Loaded Energy Filter (2026-02-27)
+
+**Problem:** Some vocal loops started with a loud word fragment then were 90% dead air.
+**Solution:** If first 20% of a loop contains >75% of total energy, skip it.
+
 ## What's Working Well (2026-02-27)
 
 - **Drums:** Consistently good output across sections. Energy-based groove/foundation categorization makes sense.
