@@ -11,7 +11,7 @@ import replicate
 logger = logging.getLogger(__name__)
 
 # Demucs v4 (htdemucs) on Replicate
-DEMUCS_MODEL = "cjwbw/demucs:25a173108cff36ef9f80f854c162d01df9e6528be175794b81571db47dee4e89"
+DEMUCS_MODEL = "cjwbw/demucs"
 
 STEM_NAMES = ["drums", "bass", "vocals", "other"]
 
