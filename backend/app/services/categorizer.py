@@ -1,4 +1,4 @@
-"""Categorize loops by musical role (foundation, groove, hook, etc.) based on stem origin and energy."""
+"""Categorize loops by musical role and select the best per section."""
 
 from statistics import median
 
@@ -6,10 +6,7 @@ from .loop_chopper import Loop
 
 
 def categorize_loops(loops_by_stem: dict[str, list[Loop]]) -> list[Loop]:
-    """Assign .category to each loop based on stem type and audio features.
-
-    Stem keys should be: drums, bass, vocals, other.
-    """
+    """Assign .category to each loop based on stem type and audio features."""
     all_loops: list[Loop] = []
 
     for stem, loops in loops_by_stem.items():
@@ -51,20 +48,22 @@ def categorize_loops(loops_by_stem: dict[str, list[Loop]]) -> list[Loop]:
 
 def auto_select(
     loops: list[Loop],
-    max_per_category: int = 3,
+    max_per_category_per_section: int = 2,
 ) -> list[dict]:
-    """Pick top N loops per category by energy.
+    """Pick top N loops per category per song section by energy.
 
     Returns list of dicts matching the .perf.json sample_tracks contract.
     """
-    by_category: dict[str, list[Loop]] = {}
+    # Group by (category, section)
+    groups: dict[tuple[str, str], list[Loop]] = {}
     for loop in loops:
-        by_category.setdefault(loop.category, []).append(loop)
+        key = (loop.category, loop.section)
+        groups.setdefault(key, []).append(loop)
 
     selected_files: set[str] = set()
-    for cat_loops in by_category.values():
-        cat_loops.sort(key=lambda l: l.energy, reverse=True)
-        for loop in cat_loops[:max_per_category]:
+    for group_loops in groups.values():
+        group_loops.sort(key=lambda l: l.energy, reverse=True)
+        for loop in group_loops[:max_per_category_per_section]:
             selected_files.add(loop.file)
 
     return [
@@ -76,6 +75,7 @@ def auto_select(
             "bars": loop.bars,
             "duration_sec": loop.duration_sec,
             "energy": loop.energy,
+            "section": loop.section,
             "selected": loop.file in selected_files,
         }
         for loop in loops
