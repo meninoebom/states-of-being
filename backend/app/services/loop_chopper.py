@@ -80,7 +80,7 @@ def chop_stem(
         rms = float(np.sqrt(np.mean(mono_seg**2)))
         energy = min(rms, 1.0)
 
-        if energy < energy_threshold:
+        if energy <= energy_threshold:
             continue
 
         # Count bars in this segment
