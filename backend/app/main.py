@@ -46,6 +46,11 @@ library_dir = Path(settings.LIBRARY_DIR)
 if library_dir.exists():
     app.mount("/library", StaticFiles(directory=str(library_dir)), name="library")
 
+# Mount frontend if it exists (for local dev and same-origin serving)
+frontend_dir = Path(__file__).parent.parent.parent / "frontend"
+if frontend_dir.exists():
+    app.mount("/app", StaticFiles(directory=str(frontend_dir), html=True), name="frontend")
+
 app.include_router(process_router, prefix="/api")
 
 # Import and include library router after app creation

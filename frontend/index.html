@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Song Blender</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header>
+    <h1>SONG BLENDER</h1>
+    <div id="status">Select a song to begin</div>
+  </header>
+
+  <div id="controls">
+    <button id="play-btn" disabled>Play</button>
+  </div>
+
+  <main>
+    <div id="song-picker"></div>
+    <div id="loop-grid"></div>
+  </main>
+
+  <script src="https://unpkg.com/tone@14.7.77/build/Tone.js"></script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
