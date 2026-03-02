@@ -16,10 +16,27 @@ const grid = new LoopGrid(document.getElementById('loop-grid'));
 
 // Status display
 const status = document.getElementById('status');
+const playBtn = document.getElementById('play-btn');
+let playing = false;
+let songLoaded = false;
+
 function setStatus(msg) { if (status) status.textContent = msg; }
+
+function updatePlayButton() {
+  playBtn.disabled = !songLoaded;
+  playBtn.textContent = playing ? 'Stop' : 'Play';
+}
 
 // Wire up song selection
 picker.onSongSelected = async (metadata) => {
+  // Stop current playback before loading new song
+  if (playing) {
+    engine.stop();
+    playing = false;
+  }
+
+  songLoaded = false;
+  updatePlayButton();
   setStatus(`Loading ${metadata.name}...`);
 
   engine.onLoadProgress = (loaded, total) => {
@@ -33,35 +50,30 @@ picker.onSongSelected = async (metadata) => {
     engine.setTrackMuted(filename, muted);
   };
 
-  setStatus(`${metadata.name} — ${metadata.bpm} BPM — Click play to start`);
-  document.getElementById('play-btn').disabled = false;
+  songLoaded = true;
+  updatePlayButton();
+  setStatus(`${metadata.name} — ${metadata.bpm} BPM — Click Play to start`);
 };
 
-// Play button (Tone.js requires user gesture to start AudioContext)
-document.getElementById('play-btn').addEventListener('click', async () => {
-  await Tone.start();
-  engine.start();
+// Single play/stop handler
+playBtn.addEventListener('click', async () => {
+  if (!songLoaded) return;
 
-  // Set all categories to audible
-  for (const cat of ['foundation', 'groove', 'bass', 'harmonic_bed', 'hook', 'texture', 'accent']) {
-    engine.setCategoryVolume(cat, -8);
-  }
-
-  setStatus('Playing');
-  document.getElementById('play-btn').textContent = 'Stop';
-  document.getElementById('play-btn').onclick = () => {
+  if (playing) {
     engine.stop();
+    playing = false;
     setStatus('Stopped');
-    document.getElementById('play-btn').textContent = 'Play';
-    document.getElementById('play-btn').onclick = async () => {
-      await Tone.start();
-      engine.start();
-      for (const cat of ['foundation', 'groove', 'bass', 'harmonic_bed', 'hook', 'texture', 'accent']) {
-        engine.setCategoryVolume(cat, -8);
-      }
-      setStatus('Playing');
-    };
-  };
+  } else {
+    await Tone.start();
+    engine.start();
+    // Set all categories to audible
+    for (const cat of ['foundation', 'groove', 'bass', 'harmonic_bed', 'hook', 'texture', 'accent']) {
+      engine.setCategoryVolume(cat, -8);
+    }
+    playing = true;
+    setStatus('Playing');
+  }
+  updatePlayButton();
 });
 
 // Load catalog on startup

@@ -183,3 +183,9 @@ main {
 }
 
 .error { color: #f88; }
+
+.grid-hint {
+  font-size: 13px;
+  color: #555;
+  margin-bottom: 12px;
+}

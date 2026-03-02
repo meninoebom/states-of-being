@@ -1,5 +1,10 @@
 /**
  * Loop grid — visual representation of sections × categories with play/mute toggles.
+ *
+ * Rows = categories (groove, bass, harmony, etc.)
+ * Columns = song sections (intro, verse, chorus, etc.)
+ * Each filled cell = a loop. Click to mute/unmute.
+ * Lit (blue) = playing. Dim = muted.
  */
 
 const CATEGORY_ORDER = ['groove', 'foundation', 'bass', 'harmonic_bed', 'hook', 'texture', 'accent'];
@@ -17,14 +22,19 @@ export class LoopGrid {
   render(metadata) {
     this.container.innerHTML = '';
 
-    // Get unique sections in order
+    // Hint text
+    const hint = document.createElement('p');
+    hint.className = 'grid-hint';
+    hint.textContent = 'Click cells to mute/unmute loops. Blue = playing, dim = muted.';
+    this.container.appendChild(hint);
+
+    // Deduplicate sections, preserving order
     const sectionLabels = [];
     const seen = new Set();
     for (const s of metadata.sections) {
-      const key = `${s.label}_${s.start}`;
-      if (!seen.has(key)) {
-        seen.add(key);
-        sectionLabels.push({ label: s.label, start: s.start, end: s.end });
+      if (!seen.has(s.label)) {
+        seen.add(s.label);
+        sectionLabels.push(s.label);
       }
     }
 
@@ -40,37 +50,37 @@ export class LoopGrid {
 
     // Header row
     grid.appendChild(this._cell('', 'grid-header grid-corner'));
-    for (const s of sectionLabels) {
-      grid.appendChild(this._cell(s.label, 'grid-header'));
+    for (const label of sectionLabels) {
+      grid.appendChild(this._cell(label, 'grid-header'));
     }
 
     // Category rows
     for (const cat of presentCategories) {
       grid.appendChild(this._cell(CATEGORY_LABELS[cat] || cat, 'grid-label'));
 
-      for (const section of sectionLabels) {
+      for (const sectionLabel of sectionLabels) {
         const tracks = metadata.tracks.filter(t =>
-          t.category === cat && t.section === section.label && t.selected
+          t.category === cat && t.section === sectionLabel && t.selected
         );
 
         if (tracks.length === 0) {
           grid.appendChild(this._cell('', 'grid-cell empty'));
         } else {
           const cell = document.createElement('div');
-          cell.className = 'grid-cell has-track';
-          cell.dataset.active = 'true';
-          cell.title = tracks.map(t => t.file).join(', ');
+          cell.className = 'grid-cell has-track active';
+          cell.title = `${CATEGORY_LABELS[cat] || cat} — ${sectionLabel}\n${tracks.map(t => t.file).join('\n')}\nClick to mute/unmute`;
 
           const dot = document.createElement('div');
           dot.className = 'track-dot';
           cell.appendChild(dot);
 
+          let active = true;
           cell.addEventListener('click', () => {
-            const active = cell.dataset.active === 'true';
-            cell.dataset.active = String(!active);
-            cell.classList.toggle('muted', active);
+            active = !active;
+            cell.classList.toggle('active', active);
+            cell.classList.toggle('muted', !active);
             for (const t of tracks) {
-              if (this.onTrackToggle) this.onTrackToggle(t.file, active);
+              if (this.onTrackToggle) this.onTrackToggle(t.file, !active);
             }
           });
 

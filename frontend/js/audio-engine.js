@@ -1,6 +1,6 @@
 /**
  * Audio engine for Song Blender — manages Tone.js Players for song loops.
- * Extracted and adapted from Calm Mirror's sampleEngine.
+ * Uses Tone.Transport to keep all loops synchronized.
  */
 
 const CATEGORIES = ['foundation', 'groove', 'bass', 'harmonic_bed', 'hook', 'texture', 'accent'];
@@ -27,6 +27,9 @@ export class AudioEngine {
   async load(metadata, baseUrl) {
     this.dispose();
     this.metadata = metadata;
+
+    // Set Transport BPM so Tone knows the tempo
+    Tone.Transport.bpm.value = metadata.bpm || 120;
 
     // Master chain
     this.masterFilter = new Tone.Filter({ frequency: 10000, type: 'lowpass', rolloff: -12 }).toDestination();
@@ -85,18 +88,37 @@ export class AudioEngine {
 
   start() {
     if (!this.loaded) return;
+
+    const bpm = this.metadata?.bpm || 120;
+    const timeSig = this.metadata?.time_signature || 4;
+    const barDur = (60 / bpm) * timeSig; // seconds per bar
+
+    // Sync all loop players to Transport so they share the same clock.
+    // Quantize each loop's end point to exact bar boundaries to prevent drift.
     for (const [cat, entries] of Object.entries(this.players)) {
       for (const { player, track } of entries) {
         if (!player.loaded || track.mode !== 'loop') continue;
-        try { player.start(0); } catch (e) { console.warn(`Could not start ${track.file}:`, e); }
+        try {
+          // Snap loop length to nearest whole bar count
+          const rawDur = player.buffer.duration;
+          const barCount = Math.round(rawDur / barDur);
+          if (barCount > 0) {
+            player.loopEnd = barCount * barDur;
+          }
+          player.sync().start(0);
+        } catch (e) { console.warn(`Could not start ${track.file}:`, e); }
       }
     }
+
+    Tone.Transport.start();
   }
 
   stop() {
+    Tone.Transport.stop();
+    // Unsync players so they can be re-synced on next start
     for (const entries of Object.values(this.players)) {
       for (const { player } of entries) {
-        try { player.stop(); } catch (e) { /* ignore */ }
+        try { player.unsync(); } catch (e) { /* ignore */ }
       }
     }
   }
@@ -175,9 +197,13 @@ export class AudioEngine {
   }
 
   dispose() {
-    this.stop();
+    Tone.Transport.stop();
+    Tone.Transport.cancel();
     for (const entries of Object.values(this.players)) {
-      for (const { player } of entries) { try { player.dispose(); } catch (e) { /* ignore */ } }
+      for (const { player } of entries) {
+        try { player.unsync(); } catch (e) { /* ignore */ }
+        try { player.dispose(); } catch (e) { /* ignore */ }
+      }
     }
     for (const g of Object.values(this.gains)) { try { g.dispose(); } catch (e) { /* ignore */ } }
     for (const f of Object.values(this.filters)) { try { f.dispose(); } catch (e) { /* ignore */ } }
