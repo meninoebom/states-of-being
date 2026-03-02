@@ -1,93 +1,131 @@
-# Calm Mirror
+# States of Being — Song Blender
 
-A browser-based biofeedback experiment that nudges a dancer toward calmness. A webcam watches the dancer via MediaPipe Pose, analyzes movement quality, and generates real-time music via Tone.js that mirrors their emotional state — but inverted. The music is uncomfortable when the dancer is uncomfortable, rewarding when they find flow.
+## What Is This?
 
-## What It Is
+Two things in one repo:
 
-**Single HTML file** — no build step, no server dependencies. Serve with `python3 -m http.server` and open `http://localhost:8000`.
+1. **Calm Mirror** (`index.html`) — A browser-based biofeedback experiment. Webcam → MediaPipe Pose → movement analysis → real-time Tone.js music. Single HTML file, no build step.
 
-**Core loop:** Camera → MediaPipe Pose (33 keypoints) → Movement Analyzer → Emotion Computation → Tone.js Music + Color Cloud Visual
+2. **Song Blender API** (`backend/`) — A standalone FastAPI service that processes uploaded songs into categorized, section-aware loops. Deployed on Railway. Designed as an API that any web app (including States of Being) can call.
 
-## Tech Stack
+## Song Blender API
 
-- **MediaPipe Pose** (`@mediapipe/tasks-vision@0.10.14` via CDN) — 33 keypoints, 30+ FPS
-- **Tone.js** (v14.7.77 via CDN) — synthesis, scheduling, effects
-- **One-Euro Filter** — adaptive low-pass for landmark smoothing
-
-## Architecture (all in index.html)
+### Architecture
 
 ```
-┌──────────────────────────────────────────────────┐
-│  Camera → MediaPipe Pose (33 keypoints)          │
-│              ↓ One-Euro Filter                    │
-│  Movement Analyzer (kinematics + body shape)     │
-│    • velocity, jerkiness (jerk = 3rd derivative) │
-│    • contraction, verticality, symmetry          │
-│    • AdaptiveRange normalization (no calibration) │
-│              ↓                                    │
-│  Emotion Computation (gated, weighted)           │
-│    anger, sadness, fear, craving, flow           │
-│              ↓                                    │
-│  Tone.js Music Engine          Color Cloud       │
-│    bass (sub+growl), pad,      radial gradient   │
-│    melody, wood block perc,    orbs at joints    │
-│    fear synth, stillness drone                   │
-└──────────────────────────────────────────────────┘
+Upload song → [sequential: allin1 structure + Demucs stems] → chop → filter → categorize → select
 ```
 
-## Key Design Decisions
+- **Demucs** (Replicate, `ryan5453/demucs`) — Separates song into 4 stems: drums, bass, vocals, other (~$0.035/song)
+- **allin1** (Replicate, `sakemin/all-in-one-music-structure-analyzer`) — Detects song sections with labels: intro/verse/chorus/bridge/solo/outro (~$0.10/song)
+- **Post-processing** (our code) — Where all the taste lives. Chopping, energy filtering, vocal phrase extraction, categorization, selection.
 
-### Movement → Emotion Mapping
+### Key Files
 
-| Emotion | Primary Signals | Gate Condition |
-|---------|----------------|----------------|
-| **Anger** | velocity + jerkiness + asymmetry | velocity > 0.08 OR jerkiness > 0.1 |
-| **Sadness** | low velocity + contraction + slumped | velocity < 0.4 |
-| **Fear** | high jerk-to-velocity ratio | jerkiness > 0.3 |
-| **Craving** | moderate speed + reaching out | velocity 0.15-0.4, low jerk |
-| **Flow** | smoothness ratio (vel/(vel+jerk)) + low jerk | velocity > 0.03, jerkiness < 0.55; posture is additive bonus not gate |
+| File | Purpose |
+|------|---------|
+| `backend/app/api/process.py` | `/api/process` endpoint — orchestrates the pipeline |
+| `backend/app/services/song_analyzer.py` | Calls allin1 on Replicate for song structure |
+| `backend/app/services/stem_separator.py` | Calls Demucs on Replicate for stem separation |
+| `backend/app/services/loop_chopper.py` | Chops stems into loops — section-based for instruments, VAD phrase extraction for vocals |
+| `backend/app/services/categorizer.py` | Categorizes loops (groove, foundation, bass, hook, accent, harmonic_bed, texture) and auto-selects best per section |
+| `backend/app/services/beat_analyzer.py` | Fallback beat detection via librosa (used when allin1 fails) |
+| `backend/app/main.py` | FastAPI app setup, temp dir, CORS |
+| `backend/app/config.py` | Settings (MAX_UPLOAD_MB=100, Replicate token) |
+| `docs/LEARNINGS.md` | Pipeline refinement log — accumulated taste decisions from listening sessions |
 
-### Musical Response
+### Critical Technical Decisions
 
-| State | Sound |
-|-------|-------|
-| **Agitated** | Tritone clusters, chromatic stabs, irregular wood block, harsh filter, fast tempo |
-| **Transitional (anger 0.25-0.5)** | Jazz "going out" — darkened chords (Cm7b5, Bb7#11), tritone subs |
-| **Calm/Flow** | Cm9/Fm9/EbMaj9 jazz voicings, guided resolution melody phrases, bell chimes (triangle8), steady wood block with jazz swing, warm filter, 78bpm |
-| **Depressed/Still** | FM gong (pleasant) → sub bass weight → oppressive sawtooth growl, building stillness drone |
-| **Fear** | High sawtooth stabs with tremolo LFO |
+#### Vocal chopping: VAD, not section boundaries
+Vocals are sparse — silence between phrases is the signal. We use RMS-based Voice Activity Detection: compute per-frame energy (20ms), smooth (100ms rolling avg), threshold (0.008), group active regions, merge small gaps (< 300ms). Each phrase > 1s becomes its own loop. Instruments use section boundaries from allin1.
 
-### AdaptiveRange (no calibration)
+#### Directional snap-to-silence
+End cuts search forward (let the phrase finish). Start cuts search backward (find quiet before phrase starts). Window: 0.8s. Direction matters more than window size.
 
-Instead of a calibration phase, each primitive has an `AdaptiveRange` that instantly expands on new extremes and slowly contracts back. This means thresholds are always relative to YOUR actual movement range.
+#### Energy thresholds are per-stem
+drums: 0.005, bass: 0.003, vocals: 0.005, other: 0.003. Use `<=` (not `<`) to filter edge cases.
 
-### Asymmetric Lerp
+#### Front-loaded energy filter
+If first 20% of a vocal loop has >75% of total energy, skip it — it's a word fragment followed by dead air.
 
-Anger uses fast attack (0.2) but normal decay (0.1) so shaking registers immediately but doesn't snap off.
+#### Replicate rate limits
+With < $5 credit, burst limit is 1 request. allin1 and Demucs run sequentially (not parallel) to avoid 429s.
 
-## Known Issues / Next Steps
+#### Replicate SDK FileOutput objects
+SDK v1.0+ returns FileOutput objects, not strings. Always use `str(v)` to normalize URLs.
 
-- **Audio pops**: Mitigated with longer release envelope (0.1s) on MembraneSynth. PolySynth approach failed — see gotcha below.
-- **Tracking latency**: MediaPipe detection runs at rAF speed. Could decouple detection frequency from render frequency for lower latency.
-- **Flow threshold**: Redesigned — smoothness ratio approach, very low velocity gate (0.03). Working well.
-- **Anger threshold**: Similarly tuned down. Shaking in place should slam anger to 1.0.
+### Deployment (Railway)
+
+- **Service:** `song-blender-api` in Railway project `states-of-being`
+- **Domain:** `song-blender-api-production.up.railway.app`
+- **Deploy:** `cd backend && railway up --detach`
+- **Logs:** `cd backend && railway logs`
+- **Env vars:** `REPLICATE_API_TOKEN` (required)
+- **Health check:** `GET /health`
+- `os.environ.setdefault("REPLICATE_API_TOKEN", ...)` in `main.py` exports token for Replicate SDK
+
+### Local Development
+
+```bash
+cd backend
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+# Create .env with REPLICATE_API_TOKEN=...
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+### API
+
+```
+POST /api/process  (multipart file upload)
+GET  /health
+GET  /clips/{job_id}/{filename}  (serve generated WAV files)
+```
+
+Response shape:
+```json
+{
+  "job_id": "abc123",
+  "name": "Song Name",
+  "bpm": 120,
+  "time_signature": 4,
+  "sections": [{"label": "verse", "start": 32.37, "end": 48.38}],
+  "total_loops": 41,
+  "tracks": [
+    {"file": "drums_verse_1.wav", "category": "groove", "section": "verse",
+     "mode": "loop", "bars": 8, "duration_sec": 16.0, "energy": 0.17,
+     "volume": -12.0, "selected": true, "url": "/clips/abc123/drums_verse_1.wav"}
+  ]
+}
+```
+
+### What's Next
+
+- Rate limiting (5 songs/hr/IP)
+- Frontend preview grid showing sections
+- Tune vocal VAD thresholds with more songs (current: only tested with line.wav + alorsondance.wav)
+- Consider lowering `_SILENCE_THRESHOLD` to capture quieter vocal phrases
+
+## Calm Mirror (index.html)
+
+Single HTML file biofeedback experiment. See the Architecture section below for details.
+
+### Tech Stack
+
+- **MediaPipe Pose** (`@mediapipe/tasks-vision@0.10.14` via CDN)
+- **Tone.js** (v14.7.77 via CDN)
+- **One-Euro Filter** for landmark smoothing
+
+### Commands
+
+```bash
+python3 -m http.server 8000   # Serve (must be localhost for getUserMedia)
+```
 
 ### Gotchas
 
-- **PolySynth + frame loop**: NEVER use PolySynth for instruments whose per-voice properties (`.envelope.decay`, `.pitchDecay`) are modified in `updateMusic()`. PolySynth doesn't expose these at the top level — the error crashes `updateMusic()` → `detectLoop()` stops calling `requestAnimationFrame` → MediaPipe tracking dies silently. One audio error kills the entire app. If you need PolySynth, only modify top-level properties (`.volume`, `.triggerAttackRelease`) or use `.set()`.
-- **Tone.js v14 PolySynth constructor**: Options go flat at the top level, NOT nested under a `voice:` key. `new Tone.PolySynth(Tone.Synth, { oscillator: {...} })` — not `{ voice: { oscillator: {...} } }`.
-
-## Visual Design
-
-- **Color cloud**: Fullscreen 3-stop radial gradient, driven by dominant emotion
-  - Flow: bioluminescent blue-teal (H:200→175, S:55→80%, L:18→38%)
-  - Anger: burnt orange → blood red (H:20→358, S:70→95%)
-  - Stillness: black → grey → white bleach arc (L:8→55%, S:30→2%) — brightness overload
-  - Fear: sickly yellow-green (H:75→55)
-  - Neutral: deep midnight blue (H:215, S:18%, L:9%)
-- **Orbs**: Follow cloud hue, white-hot desaturated cores during high flow, fade during stillness bleach
-- **Anger flicker**: Lerped at 0.15 rate (cinematic instability, not strobing)
-- **Debug panel**: Toggle with 'd' key. Shows emotion meters + raw primitive meters. Heading-sized text for visibility while dancing.
+- **PolySynth + frame loop**: NEVER use PolySynth for instruments whose per-voice properties are modified in `updateMusic()`. PolySynth doesn't expose `.envelope.decay` etc. at the top level — crashes kill the entire detection loop silently.
+- **Tone.js v14 PolySynth constructor**: Options go flat, NOT nested under `voice:`.
 
 ## Development Workflow
 
@@ -95,19 +133,6 @@ Use judgment to plan appropriately for the task:
 - Simple changes: just implement directly.
 - Larger changes: think through the approach before coding.
 - Always create a feature branch, commit with descriptive messages, and create a PR.
-
-## Commands
-
-```bash
-python3 -m http.server 8000   # Serve the file
-# Open http://localhost:8000 (MUST be localhost, not IP — getUserMedia requires it)
-```
-
-## Code Quality
-
-- Everything in one HTML file for now — keeps iteration fast
-- No build step, no dependencies beyond CDN scripts
-- When the file gets too large, split into modules with ES imports
 
 ## After Completing Work
 

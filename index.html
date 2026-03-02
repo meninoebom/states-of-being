@@ -133,6 +133,56 @@
   }
   #start-screen td:first-child { color: #999; font-weight: 600; }
 
+  /* --- Song Loader --- */
+  #song-loader {
+    margin-bottom: 24px; text-align: center;
+  }
+  #song-loader label {
+    font-size: 13px; padding: 10px 28px; background: transparent;
+    color: #666; border: 1px solid #2a2a2a; border-radius: 24px;
+    cursor: pointer; letter-spacing: 2px; text-transform: uppercase;
+    transition: all 0.3s; display: inline-block;
+  }
+  #song-loader label:hover { color: #aaa; border-color: #555; }
+  #song-loader input { display: none; }
+  #song-status {
+    margin-top: 10px; font-size: 12px; color: #4d8;
+    letter-spacing: 1px; min-height: 18px;
+  }
+  #preview-grid {
+    display: none; max-width: 960px; width: 100%; margin-bottom: 24px;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px;
+  }
+  #preview-grid.visible { display: grid; }
+  .loop-category {
+    background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px; padding: 16px;
+  }
+  .loop-category h3 {
+    font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
+    color: #555; margin: 0 0 12px 0;
+  }
+  .loop-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .loop-item.selected { color: #ccc; }
+  .loop-item.unselected { color: #444; }
+  .loop-play-btn {
+    width: 26px; height: 26px; border-radius: 50%;
+    border: 1px solid #333; background: transparent;
+    color: #888; cursor: pointer; font-size: 11px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .loop-play-btn:hover { color: #fff; border-color: #666; }
+  .loop-label { font-size: 12px; flex: 1; }
+  .loop-bars { font-size: 10px; color: #555; }
+  .loop-toggle {
+    width: 14px; height: 14px; border-radius: 3px;
+    border: 1px solid #444; background: transparent; cursor: pointer;
+  }
+  .loop-toggle.on { background: #4d8; border-color: #4d8; }
+
   /* --- About Button (visible during experience) --- */
   #about-btn {
     position: fixed; top: 16px; left: 16px; z-index: 60;
@@ -313,8 +363,6 @@
     </div>
   </div>
 
-  <button id="start-btn" onclick="startExperience()">Begin</button>
-
   <div class="detail-toggle" onclick="this.querySelector('.detail-arrow').classList.toggle('open'); this.nextElementSibling.classList.toggle('open');">
     <span class="detail-arrow">&#9654;</span> How it works in detail
   </div>
@@ -349,6 +397,13 @@
       </div>
     </div>
   </div>
+  <div id="song-loader">
+    <label for="song-input">Blend Your Song</label>
+    <input type="file" id="song-input" accept="audio/*">
+    <div id="song-status"></div>
+  </div>
+  <div id="preview-grid"></div>
+  <button id="start-btn" onclick="startExperience()">Begin</button>
 </div>
 
 <button id="about-btn" onclick="showAbout()">ⓘ</button>
@@ -423,7 +478,11 @@
     <span class="meter-val" id="v-wristSpread">0.00</span>
   </div>
 
-  <div class="fps-line"><span id="d-fps">0</span> fps | tracking: <span id="d-tracking" style="color:#f44">no</span> | scene: <span id="d-scene">0</span> | armed: <span id="d-armed">no</span></div>
+  <div id="sample-debug" style="display:none">
+    <div class="section-label">samples</div>
+    <div id="sample-meters"></div>
+  </div>
+  <div class="fps-line"><span id="d-fps">0</span> fps | tracking: <span id="d-tracking" style="color:#f44">no</span> | scene: <span id="d-scene">0</span> | armed: <span id="d-armed">no</span> | blend: <span id="d-blend">synth</span></div>
 </div>
 
 <!-- Top: raw primitives, bars grow DOWN -->
@@ -1099,6 +1158,305 @@ const fearSynth = new Tone.Synth({
 fearLFO.connect(fearSynth.volume);
 
 // =============================================================================
+// SAMPLE PLAYBACK ENGINE
+// =============================================================================
+
+let blendMode = 'synth'; // 'synth' | 'samples' | 'blended'
+
+const sampleEngine = {
+  loaded: false,
+  config: null,
+  players: {},       // category → [Tone.Player, ...]
+  gains: {},         // category → Tone.Gain
+  filters: {},       // category → Tone.Filter
+  loops: [],
+  oneshotCooldown: 0,
+  categoryVolumes: {},
+
+  async load(perfJson, audioFiles) {
+    this.dispose();
+    this.config = perfJson;
+    const categories = ['foundation', 'groove', 'bass', 'harmonic_bed', 'hook', 'texture', 'accent'];
+
+    for (const cat of categories) {
+      const defaultFreq = (cat === 'bass') ? 1000 : (cat === 'texture') ? 8000 : 5000;
+      this.filters[cat] = new Tone.Filter({ frequency: defaultFreq, type: 'lowpass', rolloff: -12 }).connect(masterFilter);
+      this.gains[cat] = new Tone.Gain(0).connect(this.filters[cat]);
+      this.players[cat] = [];
+    }
+
+    const loadPromises = [];
+    for (const track of perfJson.sample_tracks) {
+      const cat = track.category;
+      if (!this.gains[cat]) continue;
+      const audioFile = audioFiles.find(f => f.name === track.file);
+      if (!audioFile) { console.warn(`Sample not found: ${track.file}`); continue; }
+      const url = URL.createObjectURL(audioFile);
+      const promise = new Promise((resolve) => {
+        try {
+          const player = new Tone.Player({
+            url, loop: track.mode === 'loop', volume: track.volume || -12,
+            onload: () => resolve({ player, track, cat }),
+            onerror: (err) => { console.warn(`Failed to load ${track.file}:`, err); resolve(null); }
+          }).connect(this.gains[cat]);
+        } catch (err) { console.warn(`Error creating player for ${track.file}:`, err); resolve(null); }
+      });
+      loadPromises.push(promise);
+    }
+
+    const results = await Promise.all(loadPromises);
+    for (const r of results) {
+      if (r) { r.player._trackConfig = r.track; this.players[r.cat].push(r.player); }
+    }
+    this.loaded = true;
+    console.log('SampleEngine loaded:', Object.entries(this.players).map(([k,v]) => `${k}:${v.length}`).join(', '));
+    this._buildDebugMeters();
+  },
+
+  start() {
+    if (!this.loaded) return;
+    for (const [cat, players] of Object.entries(this.players)) {
+      for (const player of players) {
+        if (!player.loaded) continue;
+        const cfg = player._trackConfig;
+        if (cfg.mode === 'loop') {
+          try { player.start(0); } catch (e) { console.warn(`Could not start ${cfg.file}:`, e); }
+        }
+      }
+    }
+  },
+
+  stop() {
+    for (const players of Object.values(this.players)) {
+      for (const player of players) { try { player.stop(); } catch (e) { /* ignore */ } }
+    }
+    for (const loop of this.loops) { loop.dispose(); }
+    this.loops = [];
+  },
+
+  update(emotions) {
+    if (!this.loaded) return;
+    const { anger, sadness, fear, craving, flow } = emotions;
+
+    const vol = {
+      foundation: -20, groove: -20, bass: -14,
+      harmonic_bed: -12, hook: -60, texture: -8, accent: -60
+    };
+
+    if (flow > 0.3) {
+      vol.foundation = -6; vol.groove = -8; vol.bass = -6;
+      vol.harmonic_bed = -8; vol.texture = -10;
+    }
+    if (sadness > 0.3) {
+      vol.foundation = -60; vol.groove = -60; vol.bass = -16;
+      vol.harmonic_bed = -10; vol.texture = -6;
+    }
+    if (anger > 0.3) {
+      vol.foundation = -8; vol.groove = -4; vol.bass = -4;
+      vol.harmonic_bed = -20; vol.texture = -18;
+    }
+    if (fear > 0.3) {
+      vol.foundation = -12; vol.groove = -6; vol.bass = -10;
+      vol.harmonic_bed = -18; vol.texture = -12;
+    }
+
+    for (const [cat, gain] of Object.entries(this.gains)) {
+      const targetDb = vol[cat] !== undefined ? vol[cat] : -20;
+      gain.gain.rampTo(Tone.dbToGain(targetDb), 1.5);
+      this.categoryVolumes[cat] = targetDb;
+    }
+
+    // Filter modulation
+    if (this.filters.foundation) this.filters.foundation.frequency.rampTo(1000 + flow * 4000 - anger * 500, 1);
+    if (this.filters.groove) this.filters.groove.frequency.rampTo(1000 + flow * 4000 - anger * 500, 1);
+    if (this.filters.bass) this.filters.bass.frequency.rampTo(300 + flow * 700 + anger * 1500, 1);
+    if (this.filters.harmonic_bed) this.filters.harmonic_bed.frequency.rampTo(2000 + flow * 3000 - sadness * 1000, 1);
+    if (this.filters.texture) this.filters.texture.frequency.rampTo(4000 + flow * 4000, 1);
+
+    // Playback rate modulation
+    for (const [cat, players] of Object.entries(this.players)) {
+      for (const player of players) {
+        if (!player.loaded) continue;
+        let rate = 1.0;
+        if (anger > 0.3) rate = 1.0 + anger * 0.15;
+        else if (sadness > 0.3) rate = 1.0 - sadness * 0.1;
+        try { player.playbackRate = rate; } catch (e) { /* ignore */ }
+      }
+    }
+
+    // Oneshot triggering
+    const timeSinceLast = performance.now() - this.oneshotCooldown;
+    if (timeSinceLast > 500) {
+      let triggered = false;
+      if (anger > 0.4 && Math.random() < anger * 0.02) { this._triggerRandomOneshot('accent', -2); triggered = true; }
+      if (!triggered && anger > 0.6 && Math.random() < anger * 0.01) { this._triggerRandomOneshot('hook', -4); triggered = true; }
+      if (!triggered && fear > 0.4 && Math.random() < fear * 0.015) { this._triggerRandomOneshot('accent', -6); triggered = true; }
+      if (triggered) this.oneshotCooldown = performance.now();
+    }
+
+    this._updateDebugMeters();
+  },
+
+  _triggerRandomOneshot(category, volumeDb) {
+    const players = this.players[category];
+    if (!players || players.length === 0) return;
+    const player = players[Math.floor(Math.random() * players.length)];
+    if (!player.loaded) return;
+    try {
+      if (this.gains[category]) {
+        this.gains[category].gain.rampTo(Tone.dbToGain(volumeDb), 0.05);
+        this.gains[category].gain.rampTo(Tone.dbToGain(-60), 2, Tone.now() + 0.5);
+      }
+      player.seek(0);
+      player.start();
+    } catch (e) { console.warn(`Oneshot trigger failed (${category}):`, e); }
+  },
+
+  _buildDebugMeters() {
+    const container = document.getElementById('sample-meters');
+    if (!container) return;
+    container.innerHTML = '';
+    for (const cat of ['foundation', 'groove', 'bass', 'harmonic_bed', 'hook', 'texture', 'accent']) {
+      if (!this.players[cat] || this.players[cat].length === 0) continue;
+      const row = document.createElement('div');
+      row.className = 'meter-row';
+      row.innerHTML = `
+        <span class="meter-label" style="font-size:16px; width:130px">${cat}</span>
+        <div class="meter-track"><div class="meter-fill" id="sm-${cat}" style="width:0%; background:#6a8"></div></div>
+        <span class="meter-val" id="sv-${cat}" style="font-size:16px">-60</span>`;
+      container.appendChild(row);
+    }
+    document.getElementById('sample-debug').style.display = 'block';
+  },
+
+  _updateDebugMeters() {
+    if (!debugVisible) return;
+    for (const [cat, db] of Object.entries(this.categoryVolumes)) {
+      const fill = document.getElementById(`sm-${cat}`);
+      const val = document.getElementById(`sv-${cat}`);
+      if (fill && val) {
+        const pct = Math.max(0, Math.min(100, ((db + 60) / 60) * 100));
+        fill.style.width = `${pct}%`;
+        val.textContent = `${Math.round(db)}dB`;
+      }
+    }
+  },
+
+  dispose() {
+    this.stop();
+    for (const players of Object.values(this.players)) {
+      for (const p of players) { try { p.dispose(); } catch (e) { /* ignore */ } }
+    }
+    for (const g of Object.values(this.gains)) { try { g.dispose(); } catch (e) { /* ignore */ } }
+    for (const f of Object.values(this.filters)) { try { f.dispose(); } catch (e) { /* ignore */ } }
+    this.players = {}; this.gains = {}; this.filters = {};
+    this.loops = []; this.loaded = false; this.config = null; this.categoryVolumes = {};
+  }
+};
+
+// --- Song upload + processing ---
+const BACKEND_URL = window.location.hostname === 'localhost'
+  ? 'http://localhost:8000'
+  : 'https://song-blender-api-production.up.railway.app';
+
+let previewAudio = null;
+
+document.getElementById('song-input').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const status = document.getElementById('song-status');
+  const startBtn = document.getElementById('start-btn');
+
+  try {
+    status.textContent = `Uploading ${file.name}...`;
+    status.style.color = '#aa8';
+    startBtn.disabled = true;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    status.textContent = 'Separating stems & analyzing beats (~30s)...';
+
+    const response = await fetch(`${BACKEND_URL}/api/process`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ detail: 'Processing failed' }));
+      throw new Error(err.detail || 'Processing failed');
+    }
+
+    const result = await response.json();
+    window._songResult = result;
+
+    status.textContent = `${result.total_loops} loops at ${result.bpm} BPM`;
+    status.style.color = '#4d8';
+
+    showPreviewGrid(result);
+    startBtn.disabled = false;
+  } catch (err) {
+    status.textContent = `Error: ${err.message}`;
+    status.style.color = '#f44';
+    startBtn.disabled = false;
+  }
+});
+
+function showPreviewGrid(result) {
+  const grid = document.getElementById('preview-grid');
+  grid.innerHTML = '';
+  grid.classList.add('visible');
+
+  const byCategory = {};
+  for (const track of result.tracks) {
+    if (!byCategory[track.category]) byCategory[track.category] = [];
+    byCategory[track.category].push(track);
+  }
+
+  const labels = {
+    foundation: 'Foundation', groove: 'Groove', bass: 'Bass',
+    harmonic_bed: 'Harmony', hook: 'Hook', texture: 'Texture', accent: 'Accent'
+  };
+
+  for (const [cat, tracks] of Object.entries(byCategory)) {
+    const col = document.createElement('div');
+    col.className = 'loop-category';
+    col.innerHTML = `<h3>${labels[cat] || cat}</h3>`;
+
+    for (const track of tracks) {
+      const item = document.createElement('div');
+      item.className = `loop-item ${track.selected ? 'selected' : 'unselected'}`;
+      item.innerHTML = `
+        <button class="loop-play-btn" title="Preview">&#9654;</button>
+        <span class="loop-label">${track.bars} bar${track.bars > 1 ? 's' : ''}</span>
+        <span class="loop-bars">${track.mode}</span>
+        <div class="loop-toggle ${track.selected ? 'on' : ''}"></div>
+      `;
+
+      item.querySelector('.loop-play-btn').addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        if (previewAudio) { previewAudio.pause(); previewAudio = null; }
+        previewAudio = new Audio(`${BACKEND_URL}${track.url}`);
+        previewAudio.play().catch(() => {});
+      });
+
+      item.querySelector('.loop-toggle').addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        const toggle = ev.currentTarget;
+        toggle.classList.toggle('on');
+        item.classList.toggle('selected');
+        item.classList.toggle('unselected');
+        track.selected = toggle.classList.contains('on');
+      });
+
+      col.appendChild(item);
+    }
+    grid.appendChild(col);
+  }
+}
+
+// =============================================================================
 // CHORD & NOTE POOLS
 // =============================================================================
 
@@ -1517,6 +1875,20 @@ function updateMusic() {
   // --- Gong: starts pleasant, grows oppressive with sustained stillness ---
   const gongVol = emotions.sadness > 0.3 ? -20 + sustainFactor * 14 : -40;
   bassGong.volume.rampTo(Math.min(-6, gongVol), 2);
+
+  // --- Sample engine: drive loaded samples with emotion state ---
+  if (sampleEngine.loaded && blendMode !== 'synth') {
+    sampleEngine.update({ anger: emotions.anger, sadness: emotions.sadness,
+      fear: emotions.fear, craving: emotions.craving, flow: emotions.flow });
+  }
+  // Adjust synth vs sample volumes based on blend mode
+  if (blendMode === 'samples' && sampleEngine.loaded) {
+    masterGain.gain.rampTo(0.05, 2); // nearly mute synths
+  } else if (blendMode === 'blended' && sampleEngine.loaded) {
+    masterGain.gain.rampTo(0.45, 2); // reduce synths to blend
+  } else {
+    masterGain.gain.rampTo(0.7, 2);  // synth-only full volume
+  }
 }
 
 // =============================================================================
@@ -1823,6 +2195,13 @@ document.addEventListener("keydown", (e) => {
     debugVisible = !debugVisible;
     debugEl.style.display = debugVisible ? "block" : "none";
   }
+  if (e.key === "b") {
+    const modes = ['synth', 'samples', 'blended'];
+    blendMode = modes[(modes.indexOf(blendMode) + 1) % modes.length];
+    const blendEl = document.getElementById('d-blend');
+    if (blendEl) blendEl.textContent = blendMode;
+    console.log('Blend mode:', blendMode);
+  }
 });
 
 // =============================================================================
@@ -1846,15 +2225,49 @@ window.startExperience = async function() {
   startBtn.textContent = "Loading...";
   startBtn.disabled = true;
 
+  // Stop preview audio if playing
+  if (previewAudio) { previewAudio.pause(); previewAudio = null; }
+  // Hide preview grid during experience
+  document.getElementById('preview-grid').classList.remove('visible');
+
   try {
     console.log("Starting audio...");
     await Tone.start();
+
+    // If a song was processed, load selected loops into sampleEngine
+    if (window._songResult) {
+      const result = window._songResult;
+      const selectedTracks = result.tracks.filter(t => t.selected);
+      if (selectedTracks.length > 0) {
+        const perfJson = {
+          name: result.name,
+          bpm: result.bpm,
+          sample_tracks: selectedTracks.map(t => ({
+            file: t.file, category: t.category, mode: t.mode, volume: t.volume,
+          })),
+        };
+        const audioFiles = await Promise.all(
+          selectedTracks.map(async (t) => {
+            const resp = await fetch(`${BACKEND_URL}${t.url}`);
+            if (!resp.ok) throw new Error(`Failed to load clip: ${t.file} (${resp.status})`);
+            const blob = await resp.blob();
+            return new File([blob], t.file, { type: 'audio/wav' });
+          })
+        );
+        await sampleEngine.load(perfJson, audioFiles);
+        blendMode = 'blended';
+        const blendEl = document.getElementById('d-blend');
+        if (blendEl) blendEl.textContent = blendMode;
+      }
+    }
+
     console.log("Audio started. Loading MediaPipe...");
     const { poseLandmarker, video } = await initPose();
     storedPoseLandmarker = poseLandmarker;
     storedVideo = video;
     console.log("MediaPipe ready. Starting music...");
     startMusic();
+    if (sampleEngine.loaded) { sampleEngine.start(); }
     document.getElementById("start-screen").style.display = "none";
     document.getElementById("about-btn").style.display = "flex";
     experienceStarted = true;

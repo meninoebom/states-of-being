@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Song Blender</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header>
+    <h1>SONG BLENDER</h1>
+    <div id="status">Select a song to begin</div>
+  </header>
+
+  <div id="controls">
+    <button id="play-btn" disabled>Play</button>
+    <select id="mode-select">
+      <option value="manual">Manual</option>
+      <option value="webcam">Webcam</option>
+      <option value="blend">Blend</option>
+    </select>
+  </div>
+
+  <!-- Hidden video element for webcam -->
+  <video id="webcam-video" style="display:none" playsinline></video>
+
+  <main>
+    <div id="song-picker"></div>
+    <div id="loop-grid"></div>
+  </main>
+
+  <!-- Skeleton overlay for body tracking verification -->
+  <canvas id="skeleton-canvas" style="display:none"></canvas>
+
+  <!-- Debug overlay for movement qualities + readings -->
+  <pre id="debug-panel" style="display:none"></pre>
+
+  <script src="https://unpkg.com/tone@14.7.77/build/Tone.js"></script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
