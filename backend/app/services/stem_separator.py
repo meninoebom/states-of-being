@@ -29,7 +29,7 @@ async def separate_stems(audio_path: str, output_dir: str) -> dict[str, str]:
     try:
         output = await asyncio.to_thread(_run_demucs, audio_path)
     except Exception as e:
-        raise RuntimeError(f"Stem separation service error: {type(e).__name__}") from e
+        raise RuntimeError(f"Stem separation failed: {e}") from e
 
     # Replicate returns dict of stem_name -> URL (str or FileOutput object).
     # Convert all values to plain URL strings.

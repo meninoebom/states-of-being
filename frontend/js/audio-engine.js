@@ -142,45 +142,6 @@ export class AudioEngine {
     }
   }
 
-  /** Update audio based on emotion readings. Called from movement layer. */
-  updateFromReadings(readings) {
-    if (!this.loaded) return;
-
-    // Default: everything quiet
-    const vol = {
-      foundation: -20, groove: -20, bass: -14,
-      harmonic_bed: -12, hook: -60, texture: -8, accent: -60,
-    };
-
-    const { flowing = 0, agitated = 0, stillness = 0, reaching = 0 } = readings;
-
-    if (flowing > 0.3) {
-      vol.foundation = -6; vol.groove = -8; vol.bass = -6;
-      vol.harmonic_bed = -8; vol.texture = -10;
-    }
-    if (stillness > 0.3) {
-      vol.foundation = -60; vol.groove = -60; vol.bass = -16;
-      vol.harmonic_bed = -10; vol.texture = -6;
-    }
-    if (agitated > 0.3) {
-      vol.foundation = -8; vol.groove = -4; vol.bass = -4;
-      vol.harmonic_bed = -20; vol.texture = -18;
-    }
-
-    for (const [cat, gain] of Object.entries(this.gains)) {
-      const targetDb = vol[cat] !== undefined ? vol[cat] : -20;
-      gain.gain.rampTo(Tone.dbToGain(targetDb), 1.5);
-      this.categoryVolumes[cat] = targetDb;
-    }
-
-    // Oneshot triggering on agitation spikes
-    const timeSinceLast = performance.now() - this.oneshotCooldown;
-    if (timeSinceLast > 500 && agitated > 0.4 && Math.random() < agitated * 0.02) {
-      this._triggerRandomOneshot('accent', -2);
-      this.oneshotCooldown = performance.now();
-    }
-  }
-
   _triggerRandomOneshot(category, volumeDb) {
     const entries = this.players[category];
     if (!entries || entries.length === 0) return;

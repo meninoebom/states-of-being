@@ -57,6 +57,7 @@ def ingest(song_path: str, api_url: str, library_dir: str):
     loops_dir.mkdir(parents=True, exist_ok=True)
 
     # 3. Download WAV loops and convert to MP3
+    failed_files = []
     for track in data["tracks"]:
         wav_url = f"{api_url}{track['url']}"
         wav_filename = track["file"]
@@ -65,7 +66,8 @@ def ingest(song_path: str, api_url: str, library_dir: str):
         print(f"  Downloading {wav_filename}...")
         wav_response = httpx.get(wav_url, timeout=60)
         if wav_response.status_code != 200:
-            print(f"  Warning: failed to download {wav_filename}, skipping")
+            print(f"  ERROR: failed to download {wav_filename} (HTTP {wav_response.status_code}), removing from metadata")
+            failed_files.append(track["file"])
             continue
 
         # Write WAV temporarily, convert to MP3
@@ -80,6 +82,12 @@ def ingest(song_path: str, api_url: str, library_dir: str):
         # Update track metadata
         track["file"] = mp3_filename
         track["url"] = f"/library/songs/{slug}/loops/{mp3_filename}"
+
+    # Remove failed tracks from metadata
+    if failed_files:
+        data["tracks"] = [t for t in data["tracks"] if t["file"] not in failed_files]
+        data["total_loops"] = len(data["tracks"])
+        print(f"  Removed {len(failed_files)} failed tracks from metadata")
 
     # 4. Write metadata.json
     metadata_path = song_dir / "metadata.json"

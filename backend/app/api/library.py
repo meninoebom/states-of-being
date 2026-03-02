@@ -2,6 +2,7 @@
 
 import json
 import logging
+import re
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
@@ -28,6 +29,8 @@ def list_songs():
 @router.get("/library/{slug}")
 def get_song(slug: str):
     """Return full metadata for a single song."""
+    if not re.match(r'^[a-z0-9][a-z0-9-]*$', slug):
+        raise HTTPException(400, "Invalid song slug")
     metadata_path = _library_dir() / "songs" / slug / "metadata.json"
     if not metadata_path.exists():
         raise HTTPException(404, f"Song '{slug}' not found")

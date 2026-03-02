@@ -59,7 +59,13 @@ picker.onSongSelected = async (metadata) => {
     setStatus(`Loading loops: ${loaded}/${total}`);
   };
 
-  await engine.load(metadata, API_URL);
+  try {
+    await engine.load(metadata, API_URL);
+  } catch (err) {
+    console.error('Failed to load song:', err);
+    setStatus(`Failed to load ${metadata.name}: ${err.message}`);
+    return;
+  }
 
   grid.render(metadata);
   grid.onTrackToggle = (filename, muted) => {
@@ -231,15 +237,13 @@ function drawSkeleton(landmarks, readingValues) {
   skeletonCtx.clearRect(0, 0, W, H);
 
   // Pick color from dominant active reading
-  let color = '#8af'; // default blue
+  const READING_COLORS = { flowing: '#6ef', agitated: '#f66', stillness: '#668', reaching: '#fa4' };
+  let color = '#8af';
   let maxVal = 0;
   for (const r of readingValues) {
     if (r.active && r.value > maxVal) {
       maxVal = r.value;
-      if (r.id === 'flowing') color = '#6ef';
-      else if (r.id === 'agitated') color = '#f66';
-      else if (r.id === 'stillness') color = '#668';
-      else if (r.id === 'reaching') color = '#fa4';
+      color = READING_COLORS[r.id] || color;
     }
   }
 
