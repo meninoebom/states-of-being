@@ -43,6 +43,14 @@ _MIN_PHRASE_SEC = 1.0  # Phrases shorter than this are discarded
 _SMOOTH_WINDOW = 5  # Rolling average window in frames (100ms)
 
 
+def _snap_to_downbeat(cut_time: float, downbeats: list[float]) -> float:
+    """Snap a cut time to the nearest downbeat for musically coherent boundaries."""
+    if not downbeats:
+        return cut_time
+    closest = min(downbeats, key=lambda db: abs(db - cut_time))
+    return closest
+
+
 def _snap_to_silence(
     y_mono: np.ndarray,
     sr: int,
@@ -259,7 +267,8 @@ def chop_stem(
             y_full, sr, y_mono, sections, downbeats, output_path, energy_threshold
         )
 
-    # Non-vocal stems: one loop per section
+    # Non-vocal stems: one loop per section, with snap-to-silence at boundaries
+    y_mono = y_full.mean(axis=0) if is_stereo else y_full
     loops: list[Loop] = []
     loop_idx = 0
     skip_labels = {"start", "end"}
@@ -274,6 +283,10 @@ def chop_stem(
 
         if sec_end - sec_start < 2.0:
             continue
+
+        # Snap to nearest downbeat for musically coherent cuts
+        sec_start = _snap_to_downbeat(sec_start, downbeats)
+        sec_end = _snap_to_downbeat(sec_end, downbeats)
 
         start_sample = int(sec_start * sr)
         end_sample = min(int(sec_end * sr), num_samples)
@@ -291,6 +304,14 @@ def chop_stem(
 
         mode = "oneshot" if bars <= 1 else "loop"
         loop_idx += 1
+
+        # Apply fade-out to avoid abrupt cuts
+        fade_samples = min(int(0.08 * sr), segment.shape[-1])  # 80ms
+        fade_curve = np.linspace(1.0, 0.0, fade_samples)
+        if is_stereo:
+            segment[..., -fade_samples:] *= fade_curve
+        else:
+            segment[-fade_samples:] *= fade_curve
 
         filename = f"{stem_name}_{label}_{loop_idx}.wav"
         write_data = segment.T if is_stereo else segment
