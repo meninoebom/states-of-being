@@ -85,6 +85,12 @@ main {
   padding: 16px 32px;
 }
 
+#controls {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
 #play-btn {
   background: #8af;
   color: #0a0a0f;
@@ -95,6 +101,16 @@ main {
   font-weight: 600;
   cursor: pointer;
   transition: opacity 0.2s;
+}
+
+#mode-select {
+  background: #12121f;
+  color: #e0e0e0;
+  border: 1px solid #1a1a2e;
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
 }
 
 #play-btn:disabled {
@@ -188,4 +204,34 @@ main {
   font-size: 13px;
   color: #555;
   margin-bottom: 12px;
+}
+
+/* Skeleton canvas */
+#skeleton-canvas {
+  position: fixed;
+  bottom: 16px;
+  left: 16px;
+  width: 200px;
+  height: 150px;
+  background: rgba(10, 10, 15, 0.85);
+  border: 1px solid #1a1a2e;
+  border-radius: 8px;
+  z-index: 100;
+}
+
+/* Debug panel */
+#debug-panel {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  background: rgba(10, 10, 15, 0.92);
+  border: 1px solid #1a1a2e;
+  border-radius: 8px;
+  padding: 16px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #8af;
+  max-width: 360px;
+  z-index: 100;
 }
