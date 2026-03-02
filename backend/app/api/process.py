@@ -6,9 +6,10 @@ import shutil
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, UploadFile
+from fastapi import APIRouter, HTTPException, Request, UploadFile
 
 from app.config import settings
+from app.limiter import limiter
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -17,7 +18,8 @@ SUPPORTED_EXTENSIONS = {".mp3", ".wav", ".m4a", ".flac", ".ogg"}
 
 
 @router.post("/process")
-async def process_song(file: UploadFile):
+@limiter.limit("5/hour")
+async def process_song(request: Request, file: UploadFile):
     """Upload a song and get back categorized, choppable loops.
 
     Pipeline: upload -> [parallel: structure analysis + stem separation] -> per-stem chop -> categorize -> select

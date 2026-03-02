@@ -6,12 +6,15 @@ import threading
 import time
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from slowapi.errors import RateLimitExceeded
 
 from app.api.process import router as process_router
 from app.config import settings
+from app.limiter import limiter
 
 # Replicate SDK reads REPLICATE_API_TOKEN from env, not from our settings.
 # Ensure it's set in the process environment (pydantic-settings only loads into the class).
@@ -20,6 +23,13 @@ os.environ.setdefault("REPLICATE_API_TOKEN", settings.REPLICATE_API_TOKEN)
 TEMP_DIR = tempfile.mkdtemp(prefix="sob_")
 
 app = FastAPI(title="Song Blender API")
+app.state.limiter = limiter
+
+
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    return JSONResponse(status_code=429, content={"detail": "Rate limit exceeded. Max 5 songs per hour."})
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -30,7 +40,17 @@ app.add_middleware(
 )
 
 app.mount("/clips", StaticFiles(directory=TEMP_DIR), name="clips")
+
+# Mount library directory if it exists (persistent storage for curated songs)
+library_dir = Path(settings.LIBRARY_DIR)
+if library_dir.exists():
+    app.mount("/library", StaticFiles(directory=str(library_dir)), name="library")
+
 app.include_router(process_router, prefix="/api")
+
+# Import and include library router after app creation
+from app.api.library import router as library_router
+app.include_router(library_router, prefix="/api")
 
 
 @app.get("/health")
