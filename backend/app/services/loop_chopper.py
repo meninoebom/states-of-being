@@ -47,8 +47,7 @@ def _snap_to_downbeat(cut_time: float, downbeats: list[float]) -> float:
     """Snap a cut time to the nearest downbeat for musically coherent boundaries."""
     if not downbeats:
         return cut_time
-    closest = min(downbeats, key=lambda db: abs(db - cut_time))
-    return closest
+    return min(downbeats, key=lambda db: abs(db - cut_time))
 
 
 def _snap_to_silence(
@@ -80,9 +79,6 @@ def _snap_to_silence(
         return cut_time
 
     n_frames = len(region) // frame_len
-    if n_frames == 0:
-        return cut_time
-
     frames = region[: n_frames * frame_len].reshape(n_frames, frame_len)
     rms = np.sqrt(np.mean(frames**2, axis=1))
 
@@ -108,9 +104,8 @@ def _extract_vocal_phrases(
     rms = np.sqrt(np.mean(trimmed**2, axis=1))
 
     # Smooth to avoid micro-gaps (breath between syllables in same word)
-    if _SMOOTH_WINDOW > 1:
-        kernel = np.ones(_SMOOTH_WINDOW) / _SMOOTH_WINDOW
-        rms = np.convolve(rms, kernel, mode="same")
+    kernel = np.ones(_SMOOTH_WINDOW) / _SMOOTH_WINDOW
+    rms = np.convolve(rms, kernel, mode="same")
 
     # Threshold: active frames
     active = rms > _SILENCE_THRESHOLD
@@ -260,15 +255,15 @@ def chop_stem(
 
     energy_threshold = ENERGY_THRESHOLDS.get(stem_name, 0.003)
 
+    y_mono = y_full.mean(axis=0) if is_stereo else y_full
+
     # For vocals, use phrase extraction instead of section-based chopping
     if stem_name == "vocals":
-        y_mono = y_full.mean(axis=0) if is_stereo else y_full
         return _chop_vocal_phrases(
             y_full, sr, y_mono, sections, downbeats, output_path, energy_threshold
         )
 
     # Non-vocal stems: one loop per section, with snap-to-silence at boundaries
-    y_mono = y_full.mean(axis=0) if is_stereo else y_full
     loops: list[Loop] = []
     loop_idx = 0
     skip_labels = {"start", "end"}
@@ -284,9 +279,11 @@ def chop_stem(
         if sec_end - sec_start < 2.0:
             continue
 
-        # Snap to nearest downbeat for musically coherent cuts
+        # Snap to nearest downbeat, then fine-tune to silence near that beat
         sec_start = _snap_to_downbeat(sec_start, downbeats)
+        sec_start = _snap_to_silence(y_mono, sr, sec_start, direction="backward", window_sec=0.15)
         sec_end = _snap_to_downbeat(sec_end, downbeats)
+        sec_end = _snap_to_silence(y_mono, sr, sec_end, direction="forward", window_sec=0.15)
 
         start_sample = int(sec_start * sr)
         end_sample = min(int(sec_end * sr), num_samples)
