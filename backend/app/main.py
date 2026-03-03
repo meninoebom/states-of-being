@@ -41,8 +41,10 @@ app.add_middleware(
 
 app.mount("/clips", StaticFiles(directory=TEMP_DIR), name="clips")
 
-# Mount library directory if it exists (persistent storage for curated songs)
+# Mount library directory — check configured path first, then git-committed fallback
 library_dir = Path(settings.LIBRARY_DIR)
+if not library_dir.exists():
+    library_dir = Path(__file__).parent.parent.parent / "library"
 if library_dir.exists():
     app.mount("/library", StaticFiles(directory=str(library_dir)), name="library")
 

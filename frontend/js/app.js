@@ -1,12 +1,13 @@
 /**
  * Song Blender — main app orchestration.
+ * Supports 0, 1, or 2 bodies via auto-detection (no mode toggle needed).
  */
 
 import { AudioEngine } from './audio-engine.js';
 import { SongPicker } from './song-picker.js';
 import { LoopGrid } from './loop-grid.js';
-import { MovementDetector } from './movement.js';
-import { ReadingsEngine } from './readings.js';
+import { MovementDetector, computeRelational } from './movement.js';
+import { ReadingsEngine, RELATIONAL_READINGS } from './readings.js';
 import { applyMapping } from './mapping.js';
 
 const API_URL = window.location.hostname === 'localhost'
@@ -16,8 +17,11 @@ const API_URL = window.location.hostname === 'localhost'
 const engine = new AudioEngine();
 const picker = new SongPicker(document.getElementById('song-picker'), API_URL);
 const grid = new LoopGrid(document.getElementById('loop-grid'));
-const detector = new MovementDetector();
-const readings = new ReadingsEngine();
+
+// Two detectors + readings engines (always allocated, used when bodies present)
+const detectors = [new MovementDetector(), new MovementDetector()];
+const readingsEngines = [new ReadingsEngine(), new ReadingsEngine()];
+const relationalReadings = new ReadingsEngine(RELATIONAL_READINGS);
 
 // State
 const status = document.getElementById('status');
@@ -141,7 +145,6 @@ async function ensureWebcam() {
   try {
     setStatus('Starting webcam...');
 
-    // Dynamic import of MediaPipe
     const { PoseLandmarker, FilesetResolver } = await import(
       'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs'
     );
@@ -156,7 +159,7 @@ async function ensureWebcam() {
         delegate: 'GPU',
       },
       runningMode: 'VIDEO',
-      numPoses: 1,
+      numPoses: 2,
       minPoseDetectionConfidence: 0.6,
       minPosePresenceConfidence: 0.6,
       minTrackingConfidence: 0.5,
@@ -196,109 +199,171 @@ function detectLoop() {
   }
 
   const now = performance.now();
+  const ts = now / 1000;
   const results = poseLandmarker.detectForVideo(video, now);
+  const bodyCount = results.landmarks ? results.landmarks.length : 0;
 
-  if (results.landmarks && results.landmarks.length > 0) {
-    const landmarks = results.landmarks[0];
-    const qualities = detector.update(landmarks, now / 1000);
-    const readingValues = readings.update(qualities);
+  if (bodyCount > 0) {
+    // Update each detected body
+    const allQualities = [];
+    const allReadings = [];
 
-    // Apply to audio (webcam or blend mode)
-    if (playing && (mode === 'webcam' || mode === 'blend')) {
-      applyMapping(readingValues, engine);
+    for (let i = 0; i < bodyCount && i < 2; i++) {
+      const qualities = detectors[i].update(results.landmarks[i], ts);
+      const bodyReadings = readingsEngines[i].update(qualities);
+      allQualities.push(qualities);
+      allReadings.push(bodyReadings);
     }
 
-    // Draw skeleton + update debug
-    drawSkeleton(landmarks, readingValues);
-    updateDebug(qualities, readingValues);
+    // Compute relational metrics when two bodies present
+    let relReadings = [];
+    let relQualities = null;
+    if (bodyCount >= 2) {
+      relQualities = computeRelational(allQualities[0], allQualities[1], detectors[0], detectors[1]);
+      relReadings = relationalReadings.update(relQualities);
+    }
+
+    // Merge readings for mapping:
+    // Average individual readings (so two "agitated" bodies don't double-weight),
+    // then append relational readings
+    const mergedReadings = averageReadings(allReadings);
+    const finalReadings = [...mergedReadings, ...relReadings];
+
+    // Apply to audio
+    if (playing && (mode === 'webcam' || mode === 'blend')) {
+      applyMapping(finalReadings, engine);
+    }
+
+    // Draw skeletons + debug
+    drawSkeletons(results.landmarks, bodyCount, finalReadings);
+    updateDebug(allQualities, finalReadings, relQualities);
   }
 
   requestAnimationFrame(detectLoop);
 }
 
+/**
+ * Average readings across bodies. For each reading ID, average the values
+ * and consider active if ANY body has it active.
+ */
+function averageReadings(bodyReadingsArrays) {
+  if (bodyReadingsArrays.length === 1) return bodyReadingsArrays[0];
+
+  // Build map of id → { totalValue, active, count }
+  const map = {};
+  for (const bodyReadings of bodyReadingsArrays) {
+    for (const r of bodyReadings) {
+      if (!map[r.id]) map[r.id] = { totalValue: 0, active: false, count: 0 };
+      map[r.id].totalValue += r.value;
+      map[r.id].active = map[r.id].active || r.active;
+      map[r.id].count++;
+    }
+  }
+
+  return Object.entries(map).map(([id, { totalValue, active, count }]) => ({
+    id,
+    value: totalValue / count,
+    active,
+  }));
+}
+
 // --- Skeleton drawing ---
 
-// MediaPipe Pose connections (pairs of landmark indices)
 const POSE_CONNECTIONS = [
-  [11, 12], // shoulders
-  [11, 13], [13, 15], // left arm
-  [12, 14], [14, 16], // right arm
-  [11, 23], [12, 24], // torso sides
-  [23, 24], // hips
-  [23, 25], [25, 27], // left leg
-  [24, 26], [26, 28], // right leg
+  [11, 12], [11, 13], [13, 15], [12, 14], [14, 16],
+  [11, 23], [12, 24], [23, 24],
+  [23, 25], [25, 27], [24, 26], [26, 28],
 ];
 
-function drawSkeleton(landmarks, readingValues) {
+const BODY_COLORS = ['#8af', '#fa8']; // body 0 = blue, body 1 = orange
+const READING_COLORS = { flowing: '#6ef', agitated: '#f66', stillness: '#668', reaching: '#fa4', unison: '#af6', opposition: '#f6a' };
+
+function drawSkeletons(allLandmarks, bodyCount, readingValues) {
   if (!skeletonCtx || !skeletonCanvas || skeletonCanvas.style.display === 'none') return;
 
   const W = skeletonCanvas.width = 200;
   const H = skeletonCanvas.height = 150;
   skeletonCtx.clearRect(0, 0, W, H);
 
-  // Pick color from dominant active reading
-  const READING_COLORS = { flowing: '#6ef', agitated: '#f66', stillness: '#668', reaching: '#fa4' };
-  let color = '#8af';
-  let maxVal = 0;
+  // If relational readings are active, tint the background
   for (const r of readingValues) {
-    if (r.active && r.value > maxVal) {
-      maxVal = r.value;
-      color = READING_COLORS[r.id] || color;
+    if ((r.id === 'unison' || r.id === 'opposition') && r.active && r.value > 0.1) {
+      skeletonCtx.fillStyle = r.id === 'unison'
+        ? `rgba(170, 255, 100, ${r.value * 0.15})`
+        : `rgba(255, 100, 170, ${r.value * 0.15})`;
+      skeletonCtx.fillRect(0, 0, W, H);
     }
   }
 
-  // Draw connections
-  skeletonCtx.strokeStyle = color;
-  skeletonCtx.lineWidth = 2;
-  skeletonCtx.lineCap = 'round';
+  for (let b = 0; b < bodyCount && b < 2; b++) {
+    const landmarks = allLandmarks[b];
+    const color = BODY_COLORS[b];
 
-  for (const [a, b] of POSE_CONNECTIONS) {
-    const la = landmarks[a], lb = landmarks[b];
-    if (la.visibility > 0.3 && lb.visibility > 0.3) {
-      skeletonCtx.beginPath();
-      // Mirror x so it feels like a mirror (webcam is flipped)
-      skeletonCtx.moveTo((1 - la.x) * W, la.y * H);
-      skeletonCtx.lineTo((1 - lb.x) * W, lb.y * H);
-      skeletonCtx.stroke();
+    // Connections
+    skeletonCtx.strokeStyle = color;
+    skeletonCtx.lineWidth = 2;
+    skeletonCtx.lineCap = 'round';
+
+    for (const [a, i] of POSE_CONNECTIONS) {
+      const la = landmarks[a], lb = landmarks[i];
+      if (la.visibility > 0.3 && lb.visibility > 0.3) {
+        skeletonCtx.beginPath();
+        skeletonCtx.moveTo((1 - la.x) * W, la.y * H);
+        skeletonCtx.lineTo((1 - lb.x) * W, lb.y * H);
+        skeletonCtx.stroke();
+      }
     }
-  }
 
-  // Draw joints
-  skeletonCtx.fillStyle = color;
-  const joints = [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28];
-  for (const i of joints) {
-    const lm = landmarks[i];
-    if (lm.visibility > 0.3) {
+    // Joints
+    skeletonCtx.fillStyle = color;
+    for (const i of [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28]) {
+      const lm = landmarks[i];
+      if (lm.visibility > 0.3) {
+        skeletonCtx.beginPath();
+        skeletonCtx.arc((1 - lm.x) * W, lm.y * H, 3, 0, Math.PI * 2);
+        skeletonCtx.fill();
+      }
+    }
+
+    // Head
+    const nose = landmarks[0];
+    if (nose.visibility > 0.3) {
       skeletonCtx.beginPath();
-      skeletonCtx.arc((1 - lm.x) * W, lm.y * H, 3, 0, Math.PI * 2);
+      skeletonCtx.arc((1 - nose.x) * W, nose.y * H, 5, 0, Math.PI * 2);
       skeletonCtx.fill();
     }
-  }
-
-  // Head (nose)
-  const nose = landmarks[0];
-  if (nose.visibility > 0.3) {
-    skeletonCtx.beginPath();
-    skeletonCtx.arc((1 - nose.x) * W, nose.y * H, 5, 0, Math.PI * 2);
-    skeletonCtx.fill();
   }
 }
 
 // --- Debug overlay ---
 
-function updateDebug(qualities, readingValues) {
+function updateDebug(allQualities, readingValues, relQualities) {
   if (!debugPanel || debugPanel.style.display === 'none') return;
 
-  const qLines = Object.entries(qualities)
-    .filter(([k]) => !k.startsWith('_'))
-    .map(([k, v]) => `${k.padEnd(14)} ${bar(v)} ${v.toFixed(2)}`)
-    .join('\n');
+  let text = '';
+
+  for (let i = 0; i < allQualities.length; i++) {
+    const label = allQualities.length > 1 ? ` (body ${i + 1})` : '';
+    const qLines = Object.entries(allQualities[i])
+      .filter(([k]) => !k.startsWith('_'))
+      .map(([k, v]) => `${k.padEnd(14)} ${bar(v)} ${v.toFixed(2)}`)
+      .join('\n');
+    text += `── qualities${label} ──\n${qLines}\n\n`;
+  }
+
+  if (relQualities) {
+    const relLines = Object.entries(relQualities)
+      .map(([k, v]) => `${k.padEnd(16)} ${bar(v)} ${v.toFixed(2)}`)
+      .join('\n');
+    text += `── relational ──\n${relLines}\n\n`;
+  }
 
   const rLines = readingValues
     .map(r => `${r.id.padEnd(14)} ${bar(r.value)} ${r.value.toFixed(2)} ${r.active ? '●' : '○'}`)
     .join('\n');
+  text += `── readings ──\n${rLines}`;
 
-  debugPanel.textContent = `── qualities ──\n${qLines}\n\n── readings ──\n${rLines}`;
+  debugPanel.textContent = text;
 }
 
 function bar(v) {

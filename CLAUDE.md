@@ -58,11 +58,33 @@ SDK v1.0+ returns FileOutput objects, not strings. Always use `str(v)` to normal
 
 - **Service:** `song-blender-api` in Railway project `states-of-being`
 - **Domain:** `song-blender-api-production.up.railway.app`
-- **Deploy:** `cd backend && railway up --detach`
-- **Logs:** `cd backend && railway logs`
+- **Frontend:** `https://song-blender-api-production.up.railway.app/app/`
+- **Deploy:** `cd /path/to/states-of-being-song-blender && railway up --detach` (from repo root, NOT backend/)
+- **Logs:** `railway logs` (runtime), `railway logs --build <deployment-id>` (build)
 - **Env vars:** `REPLICATE_API_TOKEN` (required)
 - **Health check:** `GET /health`
 - `os.environ.setdefault("REPLICATE_API_TOKEN", ...)` in `main.py` exports token for Replicate SDK
+
+#### Deploy context: repo root, not backend/
+
+**Critical:** Deploy from the **repo root**, not `backend/`. The app serves `frontend/` at `/app` and `library/` at `/library` — these are sibling directories to `backend/`. If you deploy from `backend/`, only that directory is in the Docker image and the frontend/library mounts silently fail (404).
+
+Config files at repo root:
+- `railway.toml` — start command: `cd backend && python start.py`
+- `nixpacks.toml` — `providers = ["python"]` (forces Python over Node; root `package.json` confuses auto-detect)
+- `requirements.txt` — contains `-r backend/requirements.txt` (so nixpacks finds deps at root level)
+
+#### Library path resolution
+
+`main.py` and `library.py` check `settings.LIBRARY_DIR` (`/data/library`) first, then fall back to the git-committed `library/` at repo root via `Path(__file__).parent...`. This supports both:
+- **Current:** library baked into Docker image via git (4 curated songs, ~58MB)
+- **Future:** Railway Volume mounted at `/data/library` for user uploads
+
+#### Gotchas
+
+- **nixpacks + package.json:** A `package.json` at repo root makes nixpacks think it's Node.js. The `nixpacks.toml` with `providers = ["python"]` overrides this.
+- **`railway link` is per-directory:** If you get "No linked project found", run `railway link --project states-of-being --service song-blender-api --environment production` from the repo root.
+- **Build logs vs runtime logs:** `railway logs` shows runtime. `railway logs --build <id>` shows build. The deployment ID is in the `railway up` output URL.
 
 ### Local Development
 
@@ -101,10 +123,43 @@ Response shape:
 
 ### What's Next
 
-- Rate limiting (5 songs/hr/IP)
-- Frontend preview grid showing sections
-- Tune vocal VAD thresholds with more songs (current: only tested with line.wav + alorsondance.wav)
-- Consider lowering `_SILENCE_THRESHOLD` to capture quieter vocal phrases
+See `ROADMAP.md` for prioritized next steps. Key areas:
+- UX refinement (the grid is a dev tool — design the real user experience)
+- Tune movement-to-music mappings with real users
+- Add more curated songs (5-10 across genres)
+- Railway Volume for user upload tier
+
+## Song Blender Frontend (`frontend/`)
+
+Vanilla JS app served by the API at `/app`. No build step.
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `frontend/js/app.js` | Main orchestration — song loading, play/stop, webcam init, detection loop, two-body auto-detect |
+| `frontend/js/audio-engine.js` | Tone.js Transport-synced loop players, category volume control |
+| `frontend/js/movement.js` | MediaPipe landmarks → 8 body qualities (velocity, jerkiness, coherence, etc.) + relational metrics |
+| `frontend/js/readings.js` | Ralf-compatible ReadingConfig: weighted quality combos with hysteresis gating |
+| `frontend/js/mapping.js` | Readings → audio category volume targets (the taste layer) |
+| `frontend/js/loop-grid.js` | Developer loop grid UI |
+| `frontend/js/song-picker.js` | Song catalog cards |
+
+### Architecture
+
+```
+MediaPipe Pose (numPoses: 2) → MovementDetector × N → ReadingsEngine × N
+  + computeRelational() → relationalReadings
+  → averageReadings() + merge → applyMapping() → AudioEngine
+```
+
+Auto-detects 0, 1, or 2 bodies. No mode toggle for body count.
+
+### Gotchas
+
+- **Loop sync drift:** Loop file durations aren't exact bar multiples (e.g., 4.043 bars from section chopping). Fix: `player.loopEnd = Math.round(duration / barDuration) * barDuration` snaps to nearest whole bar.
+- **Tone.Transport sync:** All players must use `player.sync().start(0)` for shared clock. Individual `.start()` causes drift.
+- **AdaptiveRange normalizer:** Expands instantly on new extremes, contracts slowly (decayRate 0.998). First few seconds of movement will recalibrate — this is expected, not a bug.
 
 ## Calm Mirror (index.html)
 

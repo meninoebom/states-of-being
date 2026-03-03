@@ -44,6 +44,21 @@ export const DEFAULT_READINGS = [
   },
 ];
 
+// Relational readings — only fire when two bodies are present.
+// Fed with { synchrony, contrast, aggregate_energy } from computeRelational().
+export const RELATIONAL_READINGS = [
+  {
+    id: 'unison',
+    mix: { synchrony: 0.6, aggregate_energy: 0.4 },
+    gate: { synchrony: { above: 0.55 } },
+  },
+  {
+    id: 'opposition',
+    mix: { contrast: 0.6, aggregate_energy: 0.4 },
+    gate: { contrast: { above: 0.4 } },
+  },
+];
+
 const HYSTERESIS_BAND = 0.05;
 const LERP_RATE = 0.08;
 

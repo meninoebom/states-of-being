@@ -14,7 +14,10 @@ router = APIRouter()
 
 
 def _library_dir() -> Path:
-    return Path(settings.LIBRARY_DIR)
+    d = Path(settings.LIBRARY_DIR)
+    if not d.exists():
+        d = Path(__file__).parent.parent.parent.parent / "library"
+    return d
 
 
 @router.get("/library")

@@ -1,0 +1,657 @@
+{
+  "job_id": "c8e19668",
+  "name": "If I Had A Million",
+  "bpm": 98,
+  "time_signature": 4,
+  "sections": [
+    {
+      "label": "intro",
+      "start": 0.29,
+      "end": 28.44
+    },
+    {
+      "label": "intro",
+      "start": 28.44,
+      "end": 41.79
+    },
+    {
+      "label": "verse",
+      "start": 41.79,
+      "end": 61.79
+    },
+    {
+      "label": "verse",
+      "start": 61.79,
+      "end": 76.94
+    },
+    {
+      "label": "verse",
+      "start": 76.94,
+      "end": 93.91
+    },
+    {
+      "label": "chorus",
+      "start": 93.91,
+      "end": 107.87
+    },
+    {
+      "label": "verse",
+      "start": 107.87,
+      "end": 124.82
+    },
+    {
+      "label": "verse",
+      "start": 124.82,
+      "end": 147.24
+    },
+    {
+      "label": "chorus",
+      "start": 147.24,
+      "end": 175.12
+    },
+    {
+      "label": "verse",
+      "start": 175.12,
+      "end": 194.51
+    },
+    {
+      "label": "verse",
+      "start": 194.51,
+      "end": 217.55
+    },
+    {
+      "label": "chorus",
+      "start": 217.55,
+      "end": 244.21
+    },
+    {
+      "label": "chorus",
+      "start": 244.21,
+      "end": 259.94
+    },
+    {
+      "label": "outro",
+      "start": 259.94,
+      "end": 274.35
+    }
+  ],
+  "total_loops": 48,
+  "tracks": [
+    {
+      "file": "other_intro_1.mp3",
+      "category": "texture",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 11,
+      "duration_sec": 24.27,
+      "energy": 0.038,
+      "section": "intro",
+      "selected": true,
+      "url": "/library/songs/if-i-had-a-million/loops/other_intro_1.mp3"
+    },
+    {
+      "file": "other_intro_2.mp3",
+      "category": "texture",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 7,
+      "duration_sec": 14.58,
+      "energy": 0.0345,
+      "section": "intro",
+      "selected": true,
+      "url": "/library/songs/if-i-had-a-million/loops/other_intro_2.mp3"
+    },
+    {
+      "file": "other_verse_3.mp3",
+      "category": "texture",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 9,
+      "duration_sec": 19.62,
+      "energy": 0.0412,
+      "section": "verse",
+      "selected": false,
+      "url": "/library/songs/if-i-had-a-million/loops/other_verse_3.mp3"
+    },
+    {
+      "file": "other_verse_4.mp3",
+      "category": "texture",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 7,
+      "duration_sec": 14.64,
+      "energy": 0.0414,
+      "section": "verse",
+      "selected": false,
+      "url": "/library/songs/if-i-had-a-million/loops/other_verse_4.mp3"
+    },
+    {
+      "file": "other_verse_5.mp3",
+      "category": "harmonic_bed",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 8,
+      "duration_sec": 17.04,
+      "energy": 0.0528,
+      "section": "verse",
+      "selected": true,
+      "url": "/library/songs/if-i-had-a-million/loops/other_verse_5.mp3"
+    },
+    {
+      "file": "other_chorus_6.mp3",
+      "category": "texture",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 7,
+      "duration_sec": 14.66,
+      "energy": 0.0438,
+      "section": "chorus",
+      "selected": true,
+      "url": "/library/songs/if-i-had-a-million/loops/other_chorus_6.mp3"
+    },
+    {
+      "file": "other_verse_7.mp3",
+      "category": "texture",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 8,
+      "duration_sec": 16.98,
+      "energy": 0.0424,
+      "section": "verse",
+      "selected": true,
+      "url": "/library/songs/if-i-had-a-million/loops/other_verse_7.mp3"
+    },
+    {
+      "file": "other_verse_8.mp3",
+      "category": "harmonic_bed",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 10,
+      "duration_sec": 21.99,
+      "energy": 0.0488,
+      "section": "verse",
+      "selected": false,
+      "url": "/library/songs/if-i-had-a-million/loops/other_verse_8.mp3"
+    },
+    {
+      "file": "other_chorus_9.mp3",
+      "category": "harmonic_bed",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 13,
+      "duration_sec": 29.11,
+      "energy": 0.0602,
+      "section": "chorus",
+      "selected": false,
+      "url": "/library/songs/if-i-had-a-million/loops/other_chorus_9.mp3"
+    },
+    {
+      "file": "other_verse_10.mp3",
+      "category": "texture",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 9,
+      "duration_sec": 19.65,
+      "energy": 0.0449,
+      "section": "verse",
+      "selected": true,
+      "url": "/library/songs/if-i-had-a-million/loops/other_verse_10.mp3"
+    },
+    {
+      "file": "other_verse_11.mp3",
+      "category": "harmonic_bed",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 10,
+      "duration_sec": 21.87,
+      "energy": 0.0533,
+      "section": "verse",
+      "selected": true,
+      "url": "/library/songs/if-i-had-a-million/loops/other_verse_11.mp3"
+    },
+    {
+      "file": "other_chorus_12.mp3",
+      "category": "harmonic_bed",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 13,
+      "duration_sec": 29.09,
+      "energy": 0.0758,
+      "section": "chorus",
+      "selected": true,
+      "url": "/library/songs/if-i-had-a-million/loops/other_chorus_12.mp3"
+    },
+    {
+      "file": "other_chorus_13.mp3",
+      "category": "harmonic_bed",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 7,
+      "duration_sec": 14.57,
+      "energy": 0.0857,
+      "section": "chorus",
+      "selected": true,
+      "url": "/library/songs/if-i-had-a-million/loops/other_chorus_13.mp3"
+    },
+    {
+      "file": "other_outro_14.mp3",
+      "category": "harmonic_bed",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 6,
+      "duration_sec": 12.12,
+      "energy": 0.1074,
+      "section": "outro",
+      "selected": true,
+      "url": "/library/songs/if-i-had-a-million/loops/other_outro_14.mp3"
+    },
+    {
+      "file": "vocals_phrase_verse_1.mp3",
+      "category": "hook",
+      "mode": "oneshot",
+      "volume": -12.0,
+      "bars": 1,
+      "duration_sec": 3.64,
+      "energy": 0.1557,
+      "section": "verse",
+      "selected": true,
+      "url": "/library/songs/if-i-had-a-million/loops/vocals_phrase_verse_1.mp3"
+    },
+    {
+      "file": "vocals_phrase_verse_2.mp3",
+      "category": "accent",
+      "mode": "oneshot",
+      "volume": -12.0,
+      "bars": 2,
+      "duration_sec": 2.82,
+      "energy": 0.1401,
+      "section": "verse",
+      "selected": false,
+      "url": "/library/songs/if-i-had-a-million/loops/vocals_phrase_verse_2.mp3"
+    },
+    {
+      "file": "vocals_phrase_verse_3.mp3",
+      "category": "accent",
+      "mode": "oneshot",
+      "volume": -12.0,
+      "bars": 1,
+      "duration_sec": 1.98,
+      "energy": 0.0656,
+      "section": "verse",
+      "selected": false,
+      "url": "/library/songs/if-i-had-a-million/loops/vocals_phrase_verse_3.mp3"
+    },
+    {
+      "file": "vocals_phrase_verse_5.mp3",
+      "category": "accent",
+      "mode": "oneshot",
+      "volume": -12.0,
+      "bars": 1,
+      "duration_sec": 2.36,
+      "energy": 0.179,
+      "section": "verse",
+      "selected": true,
+      "url": "/library/songs/if-i-had-a-million/loops/vocals_phrase_verse_5.mp3"
+    },
+    {
+      "file": "vocals_phrase_verse_6.mp3",
+      "category": "accent",
+      "mode": "oneshot",
+      "volume": -12.0,
+      "bars": 1,
+      "duration_sec": 2.36,
+      "energy": 0.1642,
+      "section": "verse",
+      "selected": false,
+      "url": "/library/songs/if-i-had-a-million/loops/vocals_phrase_verse_6.mp3"
+    },
+    {
+      "file": "vocals_phrase_verse_7.mp3",
+      "category": "accent",
+      "mode": "oneshot",
+      "volume": -12.0,
+      "bars": 1,
+      "duration_sec": 1.92,
+      "energy": 0.0604,
+      "section": "verse",
+      "selected": false,
+      "url": "/library/songs/if-i-had-a-million/loops/vocals_phrase_verse_7.mp3"
+    },
+    {
+      "file": "vocals_phrase_verse_8.mp3",
+      "category": "accent",
+      "mode": "oneshot",
+      "volume": -12.0,
+      "bars": 1,
+      "duration_sec": 2.94,
+      "energy": 0.153,
+      "section": "verse",
+      "selected": false,
+      "url": "/library/songs/if-i-had-a-million/loops/vocals_phrase_verse_8.mp3"
+    },
+    {
+      "file": "vocals_phrase_verse_10.mp3",
+      "category": "accent",
+      "mode": "oneshot",
+      "volume": -12.0,
+      "bars": 1,
+      "duration_sec": 2.3,
+      "energy": 0.1263,
+      "section": "verse",
+      "selected": false,
+      "url": "/library/songs/if-i-had-a-million/loops/vocals_phrase_verse_10.mp3"
+    },
+    {
+      "file": "vocals_phrase_verse_12.mp3",
+      "category": "accent",
+      "mode": "oneshot",
+      "volume": -12.0,
+      "bars": 1,
+      "duration_sec": 1.84,
+      "energy": 0.1285,
+      "section": "verse",
+      "selected": false,
+      "url": "/library/songs/if-i-had-a-million/loops/vocals_phrase_verse_12.mp3"
+    },
+    {
+      "file": "vocals_phrase_chorus_13.mp3",
+      "category": "accent",
+      "mode": "oneshot",
+      "volume": -12.0,
+      "bars": 1,
+      "duration_sec": 1.8,
+      "energy": 0.0326,
+      "section": "chorus",
+      "selected": false,
+      "url": "/library/songs/if-i-had-a-million/loops/vocals_phrase_chorus_13.mp3"
+    },
+    {
+      "file": "vocals_phrase_chorus_14.mp3",
+      "category": "hook",
+      "mode": "oneshot",
+      "volume": -12.0,
+      "bars": 1,
+      "duration_sec": 3.44,
+      "energy": 0.1709,
+      "section": "chorus",
+      "selected": true,
+      "url": "/library/songs/if-i-had-a-million/loops/vocals_phrase_chorus_14.mp3"
+    },
+    {
+      "file": "vocals_phrase_verse_18.mp3",
+      "category": "accent",
+      "mode": "oneshot",
+      "volume": -12.0,
+      "bars": 1,
+      "duration_sec": 2.68,
+      "energy": 0.1742,
+      "section": "verse",
+      "selected": false,
+      "url": "/library/songs/if-i-had-a-million/loops/vocals_phrase_verse_18.mp3"
+    },
+    {
+      "file": "vocals_phrase_verse_20.mp3",
+      "category": "accent",
+      "mode": "oneshot",
+      "volume": -12.0,
+      "bars": 1,
+      "duration_sec": 2.4,
+      "energy": 0.1583,
+      "section": "verse",
+      "selected": false,
+      "url": "/library/songs/if-i-had-a-million/loops/vocals_phrase_verse_20.mp3"
+    },
+    {
+      "file": "vocals_phrase_verse_21.mp3",
+      "category": "accent",
+      "mode": "oneshot",
+      "volume": -12.0,
+      "bars": 1,
+      "duration_sec": 2.6,
+      "energy": 0.1229,
+      "section": "verse",
+      "selected": false,
+      "url": "/library/songs/if-i-had-a-million/loops/vocals_phrase_verse_21.mp3"
+    },
+    {
+      "file": "vocals_phrase_verse_22.mp3",
+      "category": "accent",
+      "mode": "oneshot",
+      "volume": -12.0,
+      "bars": 1,
+      "duration_sec": 2.82,
+      "energy": 0.1553,
+      "section": "verse",
+      "selected": false,
+      "url": "/library/songs/if-i-had-a-million/loops/vocals_phrase_verse_22.mp3"
+    },
+    {
+      "file": "vocals_phrase_verse_23.mp3",
+      "category": "accent",
+      "mode": "oneshot",
+      "volume": -12.0,
+      "bars": 1,
+      "duration_sec": 2.16,
+      "energy": 0.1955,
+      "section": "verse",
+      "selected": true,
+      "url": "/library/songs/if-i-had-a-million/loops/vocals_phrase_verse_23.mp3"
+    },
+    {
+      "file": "vocals_phrase_chorus_24.mp3",
+      "category": "accent",
+      "mode": "oneshot",
+      "volume": -12.0,
+      "bars": 1,
+      "duration_sec": 1.7,
+      "energy": 0.1635,
+      "section": "chorus",
+      "selected": true,
+      "url": "/library/songs/if-i-had-a-million/loops/vocals_phrase_chorus_24.mp3"
+    },
+    {
+      "file": "vocals_phrase_chorus_25.mp3",
+      "category": "accent",
+      "mode": "oneshot",
+      "volume": -12.0,
+      "bars": 1,
+      "duration_sec": 2.76,
+      "energy": 0.1268,
+      "section": "chorus",
+      "selected": false,
+      "url": "/library/songs/if-i-had-a-million/loops/vocals_phrase_chorus_25.mp3"
+    },
+    {
+      "file": "vocals_phrase_chorus_26.mp3",
+      "category": "hook",
+      "mode": "oneshot",
+      "volume": -12.0,
+      "bars": 1,
+      "duration_sec": 3.64,
+      "energy": 0.1565,
+      "section": "chorus",
+      "selected": true,
+      "url": "/library/songs/if-i-had-a-million/loops/vocals_phrase_chorus_26.mp3"
+    },
+    {
+      "file": "vocals_phrase_chorus_27.mp3",
+      "category": "hook",
+      "mode": "oneshot",
+      "volume": -12.0,
+      "bars": 1,
+      "duration_sec": 4.14,
+      "energy": 0.129,
+      "section": "chorus",
+      "selected": false,
+      "url": "/library/songs/if-i-had-a-million/loops/vocals_phrase_chorus_27.mp3"
+    },
+    {
+      "file": "vocals_phrase_chorus_28.mp3",
+      "category": "accent",
+      "mode": "oneshot",
+      "volume": -12.0,
+      "bars": 1,
+      "duration_sec": 2.76,
+      "energy": 0.1623,
+      "section": "chorus",
+      "selected": false,
+      "url": "/library/songs/if-i-had-a-million/loops/vocals_phrase_chorus_28.mp3"
+    },
+    {
+      "file": "vocals_phrase_verse_30.mp3",
+      "category": "hook",
+      "mode": "oneshot",
+      "volume": -12.0,
+      "bars": 1,
+      "duration_sec": 3.58,
+      "energy": 0.1583,
+      "section": "verse",
+      "selected": true,
+      "url": "/library/songs/if-i-had-a-million/loops/vocals_phrase_verse_30.mp3"
+    },
+    {
+      "file": "vocals_phrase_verse_31.mp3",
+      "category": "accent",
+      "mode": "oneshot",
+      "volume": -12.0,
+      "bars": 1,
+      "duration_sec": 2.8,
+      "energy": 0.1743,
+      "section": "verse",
+      "selected": false,
+      "url": "/library/songs/if-i-had-a-million/loops/vocals_phrase_verse_31.mp3"
+    },
+    {
+      "file": "vocals_phrase_verse_33.mp3",
+      "category": "hook",
+      "mode": "oneshot",
+      "volume": -12.0,
+      "bars": 1,
+      "duration_sec": 4.06,
+      "energy": 0.1425,
+      "section": "verse",
+      "selected": false,
+      "url": "/library/songs/if-i-had-a-million/loops/vocals_phrase_verse_33.mp3"
+    },
+    {
+      "file": "vocals_phrase_verse_34.mp3",
+      "category": "accent",
+      "mode": "oneshot",
+      "volume": -12.0,
+      "bars": 1,
+      "duration_sec": 2.36,
+      "energy": 0.1315,
+      "section": "verse",
+      "selected": false,
+      "url": "/library/songs/if-i-had-a-million/loops/vocals_phrase_verse_34.mp3"
+    },
+    {
+      "file": "vocals_phrase_verse_36.mp3",
+      "category": "accent",
+      "mode": "oneshot",
+      "volume": -12.0,
+      "bars": 1,
+      "duration_sec": 2.56,
+      "energy": 0.1778,
+      "section": "verse",
+      "selected": false,
+      "url": "/library/songs/if-i-had-a-million/loops/vocals_phrase_verse_36.mp3"
+    },
+    {
+      "file": "vocals_phrase_chorus_38.mp3",
+      "category": "accent",
+      "mode": "oneshot",
+      "volume": -12.0,
+      "bars": 1,
+      "duration_sec": 2.62,
+      "energy": 0.1447,
+      "section": "chorus",
+      "selected": false,
+      "url": "/library/songs/if-i-had-a-million/loops/vocals_phrase_chorus_38.mp3"
+    },
+    {
+      "file": "vocals_phrase_chorus_40.mp3",
+      "category": "accent",
+      "mode": "oneshot",
+      "volume": -12.0,
+      "bars": 1,
+      "duration_sec": 1.76,
+      "energy": 0.112,
+      "section": "chorus",
+      "selected": false,
+      "url": "/library/songs/if-i-had-a-million/loops/vocals_phrase_chorus_40.mp3"
+    },
+    {
+      "file": "vocals_phrase_chorus_41.mp3",
+      "category": "accent",
+      "mode": "oneshot",
+      "volume": -12.0,
+      "bars": 1,
+      "duration_sec": 2.2,
+      "energy": 0.181,
+      "section": "chorus",
+      "selected": true,
+      "url": "/library/songs/if-i-had-a-million/loops/vocals_phrase_chorus_41.mp3"
+    },
+    {
+      "file": "vocals_phrase_chorus_42.mp3",
+      "category": "accent",
+      "mode": "oneshot",
+      "volume": -12.0,
+      "bars": 1,
+      "duration_sec": 1.84,
+      "energy": 0.1055,
+      "section": "chorus",
+      "selected": false,
+      "url": "/library/songs/if-i-had-a-million/loops/vocals_phrase_chorus_42.mp3"
+    },
+    {
+      "file": "vocals_phrase_chorus_43.mp3",
+      "category": "accent",
+      "mode": "oneshot",
+      "volume": -12.0,
+      "bars": 1,
+      "duration_sec": 2.26,
+      "energy": 0.1203,
+      "section": "chorus",
+      "selected": false,
+      "url": "/library/songs/if-i-had-a-million/loops/vocals_phrase_chorus_43.mp3"
+    },
+    {
+      "file": "vocals_phrase_chorus_45.mp3",
+      "category": "accent",
+      "mode": "oneshot",
+      "volume": -12.0,
+      "bars": 1,
+      "duration_sec": 1.7,
+      "energy": 0.1093,
+      "section": "chorus",
+      "selected": false,
+      "url": "/library/songs/if-i-had-a-million/loops/vocals_phrase_chorus_45.mp3"
+    },
+    {
+      "file": "vocals_phrase_chorus_46.mp3",
+      "category": "accent",
+      "mode": "oneshot",
+      "volume": -12.0,
+      "bars": 1,
+      "duration_sec": 2.16,
+      "energy": 0.1392,
+      "section": "chorus",
+      "selected": false,
+      "url": "/library/songs/if-i-had-a-million/loops/vocals_phrase_chorus_46.mp3"
+    },
+    {
+      "file": "vocals_phrase_outro_47.mp3",
+      "category": "accent",
+      "mode": "oneshot",
+      "volume": -12.0,
+      "bars": 1,
+      "duration_sec": 2.56,
+      "energy": 0.1276,
+      "section": "outro",
+      "selected": true,
+      "url": "/library/songs/if-i-had-a-million/loops/vocals_phrase_outro_47.mp3"
+    }
+  ]
+}

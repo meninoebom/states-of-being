@@ -1,0 +1,411 @@
+{
+  "job_id": "792ab170",
+  "name": "Sweet Thang",
+  "bpm": 81,
+  "time_signature": 4,
+  "sections": [
+    {
+      "label": "intro",
+      "start": 0.29,
+      "end": 12.53
+    },
+    {
+      "label": "verse",
+      "start": 12.53,
+      "end": 36.29
+    },
+    {
+      "label": "chorus",
+      "start": 36.29,
+      "end": 64.41
+    },
+    {
+      "label": "verse",
+      "start": 64.41,
+      "end": 92.52
+    },
+    {
+      "label": "chorus",
+      "start": 92.52,
+      "end": 127.92
+    },
+    {
+      "label": "chorus",
+      "start": 127.92,
+      "end": 148.59
+    },
+    {
+      "label": "chorus",
+      "start": 148.59,
+      "end": 172.11
+    },
+    {
+      "label": "chorus",
+      "start": 172.11,
+      "end": 189.75
+    }
+  ],
+  "total_loops": 30,
+  "tracks": [
+    {
+      "file": "bass_intro_1.mp3",
+      "category": "bass",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 5,
+      "duration_sec": 11.98,
+      "energy": 0.0753,
+      "section": "intro",
+      "selected": true,
+      "url": "/library/songs/sweet-thang/loops/bass_intro_1.mp3"
+    },
+    {
+      "file": "bass_verse_2.mp3",
+      "category": "bass",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 9,
+      "duration_sec": 23.8,
+      "energy": 0.0719,
+      "section": "verse",
+      "selected": true,
+      "url": "/library/songs/sweet-thang/loops/bass_verse_2.mp3"
+    },
+    {
+      "file": "bass_chorus_3.mp3",
+      "category": "bass",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 10,
+      "duration_sec": 28.19,
+      "energy": 0.0708,
+      "section": "chorus",
+      "selected": false,
+      "url": "/library/songs/sweet-thang/loops/bass_chorus_3.mp3"
+    },
+    {
+      "file": "bass_verse_4.mp3",
+      "category": "bass",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 10,
+      "duration_sec": 26.92,
+      "energy": 0.0855,
+      "section": "verse",
+      "selected": true,
+      "url": "/library/songs/sweet-thang/loops/bass_verse_4.mp3"
+    },
+    {
+      "file": "bass_chorus_5.mp3",
+      "category": "bass",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 13,
+      "duration_sec": 36.92,
+      "energy": 0.0949,
+      "section": "chorus",
+      "selected": false,
+      "url": "/library/songs/sweet-thang/loops/bass_chorus_5.mp3"
+    },
+    {
+      "file": "bass_chorus_6.mp3",
+      "category": "bass",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 8,
+      "duration_sec": 20.73,
+      "energy": 0.093,
+      "section": "chorus",
+      "selected": false,
+      "url": "/library/songs/sweet-thang/loops/bass_chorus_6.mp3"
+    },
+    {
+      "file": "bass_chorus_7.mp3",
+      "category": "bass",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 9,
+      "duration_sec": 23.54,
+      "energy": 0.103,
+      "section": "chorus",
+      "selected": true,
+      "url": "/library/songs/sweet-thang/loops/bass_chorus_7.mp3"
+    },
+    {
+      "file": "bass_chorus_8.mp3",
+      "category": "bass",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 7,
+      "duration_sec": 17.69,
+      "energy": 0.1046,
+      "section": "chorus",
+      "selected": true,
+      "url": "/library/songs/sweet-thang/loops/bass_chorus_8.mp3"
+    },
+    {
+      "file": "drums_intro_1.mp3",
+      "category": "groove",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 5,
+      "duration_sec": 11.92,
+      "energy": 0.0686,
+      "section": "intro",
+      "selected": true,
+      "url": "/library/songs/sweet-thang/loops/drums_intro_1.mp3"
+    },
+    {
+      "file": "drums_verse_2.mp3",
+      "category": "foundation",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 9,
+      "duration_sec": 23.8,
+      "energy": 0.0531,
+      "section": "verse",
+      "selected": true,
+      "url": "/library/songs/sweet-thang/loops/drums_verse_2.mp3"
+    },
+    {
+      "file": "drums_chorus_3.mp3",
+      "category": "foundation",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 10,
+      "duration_sec": 28.15,
+      "energy": 0.0528,
+      "section": "chorus",
+      "selected": true,
+      "url": "/library/songs/sweet-thang/loops/drums_chorus_3.mp3"
+    },
+    {
+      "file": "drums_verse_4.mp3",
+      "category": "foundation",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 10,
+      "duration_sec": 26.8,
+      "energy": 0.0597,
+      "section": "verse",
+      "selected": true,
+      "url": "/library/songs/sweet-thang/loops/drums_verse_4.mp3"
+    },
+    {
+      "file": "drums_chorus_5.mp3",
+      "category": "groove",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 13,
+      "duration_sec": 36.9,
+      "energy": 0.0727,
+      "section": "chorus",
+      "selected": true,
+      "url": "/library/songs/sweet-thang/loops/drums_chorus_5.mp3"
+    },
+    {
+      "file": "drums_chorus_6.mp3",
+      "category": "groove",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 8,
+      "duration_sec": 20.71,
+      "energy": 0.0686,
+      "section": "chorus",
+      "selected": true,
+      "url": "/library/songs/sweet-thang/loops/drums_chorus_6.mp3"
+    },
+    {
+      "file": "drums_chorus_7.mp3",
+      "category": "groove",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 9,
+      "duration_sec": 23.62,
+      "energy": 0.0598,
+      "section": "chorus",
+      "selected": false,
+      "url": "/library/songs/sweet-thang/loops/drums_chorus_7.mp3"
+    },
+    {
+      "file": "drums_chorus_8.mp3",
+      "category": "foundation",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 7,
+      "duration_sec": 17.79,
+      "energy": 0.0504,
+      "section": "chorus",
+      "selected": true,
+      "url": "/library/songs/sweet-thang/loops/drums_chorus_8.mp3"
+    },
+    {
+      "file": "other_intro_1.mp3",
+      "category": "harmonic_bed",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 5,
+      "duration_sec": 11.96,
+      "energy": 0.0792,
+      "section": "intro",
+      "selected": true,
+      "url": "/library/songs/sweet-thang/loops/other_intro_1.mp3"
+    },
+    {
+      "file": "other_verse_2.mp3",
+      "category": "texture",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 9,
+      "duration_sec": 23.84,
+      "energy": 0.0668,
+      "section": "verse",
+      "selected": true,
+      "url": "/library/songs/sweet-thang/loops/other_verse_2.mp3"
+    },
+    {
+      "file": "other_chorus_3.mp3",
+      "category": "harmonic_bed",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 10,
+      "duration_sec": 28.21,
+      "energy": 0.0869,
+      "section": "chorus",
+      "selected": true,
+      "url": "/library/songs/sweet-thang/loops/other_chorus_3.mp3"
+    },
+    {
+      "file": "other_verse_4.mp3",
+      "category": "texture",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 10,
+      "duration_sec": 26.74,
+      "energy": 0.0552,
+      "section": "verse",
+      "selected": true,
+      "url": "/library/songs/sweet-thang/loops/other_verse_4.mp3"
+    },
+    {
+      "file": "other_chorus_5.mp3",
+      "category": "harmonic_bed",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 13,
+      "duration_sec": 36.9,
+      "energy": 0.083,
+      "section": "chorus",
+      "selected": true,
+      "url": "/library/songs/sweet-thang/loops/other_chorus_5.mp3"
+    },
+    {
+      "file": "other_chorus_6.mp3",
+      "category": "texture",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 8,
+      "duration_sec": 20.71,
+      "energy": 0.0687,
+      "section": "chorus",
+      "selected": true,
+      "url": "/library/songs/sweet-thang/loops/other_chorus_6.mp3"
+    },
+    {
+      "file": "other_chorus_7.mp3",
+      "category": "texture",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 9,
+      "duration_sec": 23.64,
+      "energy": 0.0663,
+      "section": "chorus",
+      "selected": true,
+      "url": "/library/songs/sweet-thang/loops/other_chorus_7.mp3"
+    },
+    {
+      "file": "other_chorus_8.mp3",
+      "category": "harmonic_bed",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 7,
+      "duration_sec": 17.69,
+      "energy": 0.0736,
+      "section": "chorus",
+      "selected": false,
+      "url": "/library/songs/sweet-thang/loops/other_chorus_8.mp3"
+    },
+    {
+      "file": "vocals_phrase_verse_3.mp3",
+      "category": "accent",
+      "mode": "oneshot",
+      "volume": -12.0,
+      "bars": 1,
+      "duration_sec": 2.68,
+      "energy": 0.1165,
+      "section": "verse",
+      "selected": true,
+      "url": "/library/songs/sweet-thang/loops/vocals_phrase_verse_3.mp3"
+    },
+    {
+      "file": "vocals_phrase_verse_4.mp3",
+      "category": "hook",
+      "mode": "oneshot",
+      "volume": -12.0,
+      "bars": 1,
+      "duration_sec": 3.14,
+      "energy": 0.1356,
+      "section": "verse",
+      "selected": true,
+      "url": "/library/songs/sweet-thang/loops/vocals_phrase_verse_4.mp3"
+    },
+    {
+      "file": "vocals_phrase_verse_16.mp3",
+      "category": "accent",
+      "mode": "oneshot",
+      "volume": -12.0,
+      "bars": 1,
+      "duration_sec": 2.18,
+      "energy": 0.1306,
+      "section": "verse",
+      "selected": true,
+      "url": "/library/songs/sweet-thang/loops/vocals_phrase_verse_16.mp3"
+    },
+    {
+      "file": "vocals_phrase_chorus_24.mp3",
+      "category": "accent",
+      "mode": "oneshot",
+      "volume": -12.0,
+      "bars": 1,
+      "duration_sec": 2.04,
+      "energy": 0.0403,
+      "section": "chorus",
+      "selected": true,
+      "url": "/library/songs/sweet-thang/loops/vocals_phrase_chorus_24.mp3"
+    },
+    {
+      "file": "vocals_phrase_chorus_28.mp3",
+      "category": "accent",
+      "mode": "oneshot",
+      "volume": -12.0,
+      "bars": 1,
+      "duration_sec": 2.94,
+      "energy": 0.1593,
+      "section": "chorus",
+      "selected": true,
+      "url": "/library/songs/sweet-thang/loops/vocals_phrase_chorus_28.mp3"
+    },
+    {
+      "file": "vocals_phrase_chorus_30.mp3",
+      "category": "hook",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 3,
+      "duration_sec": 8.72,
+      "energy": 0.1216,
+      "section": "chorus",
+      "selected": true,
+      "url": "/library/songs/sweet-thang/loops/vocals_phrase_chorus_30.mp3"
+    }
+  ]
+}
