@@ -1,0 +1,433 @@
+{
+  "job_id": "1dce4af5",
+  "name": "Highest",
+  "bpm": 97,
+  "time_signature": 4,
+  "sections": [
+    {
+      "label": "intro",
+      "start": 0.17,
+      "end": 20.12
+    },
+    {
+      "label": "intro",
+      "start": 20.12,
+      "end": 40.03
+    },
+    {
+      "label": "intro",
+      "start": 40.03,
+      "end": 64.92
+    },
+    {
+      "label": "verse",
+      "start": 64.92,
+      "end": 79.86
+    },
+    {
+      "label": "verse",
+      "start": 79.86,
+      "end": 99.78
+    },
+    {
+      "label": "chorus",
+      "start": 99.78,
+      "end": 119.68
+    },
+    {
+      "label": "solo",
+      "start": 119.68,
+      "end": 139.6
+    },
+    {
+      "label": "solo",
+      "start": 139.6,
+      "end": 159.52
+    },
+    {
+      "label": "chorus",
+      "start": 159.52,
+      "end": 194.38
+    },
+    {
+      "label": "outro",
+      "start": 194.38,
+      "end": 209.32
+    }
+  ],
+  "total_loops": 31,
+  "tracks": [
+    {
+      "file": "bass_intro_1.mp3",
+      "category": "bass",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 9,
+      "duration_sec": 20.03,
+      "energy": 0.0193,
+      "section": "intro",
+      "selected": false,
+      "url": "/library/songs/highest/loops/bass_intro_1.mp3"
+    },
+    {
+      "file": "bass_intro_2.mp3",
+      "category": "bass",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 9,
+      "duration_sec": 20.11,
+      "energy": 0.1311,
+      "section": "intro",
+      "selected": true,
+      "url": "/library/songs/highest/loops/bass_intro_2.mp3"
+    },
+    {
+      "file": "bass_intro_3.mp3",
+      "category": "bass",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 11,
+      "duration_sec": 25.09,
+      "energy": 0.1359,
+      "section": "intro",
+      "selected": true,
+      "url": "/library/songs/highest/loops/bass_intro_3.mp3"
+    },
+    {
+      "file": "bass_verse_4.mp3",
+      "category": "bass",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 7,
+      "duration_sec": 15.1,
+      "energy": 0.1344,
+      "section": "verse",
+      "selected": true,
+      "url": "/library/songs/highest/loops/bass_verse_4.mp3"
+    },
+    {
+      "file": "bass_verse_5.mp3",
+      "category": "bass",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 9,
+      "duration_sec": 20.1,
+      "energy": 0.1295,
+      "section": "verse",
+      "selected": true,
+      "url": "/library/songs/highest/loops/bass_verse_5.mp3"
+    },
+    {
+      "file": "bass_chorus_6.mp3",
+      "category": "bass",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 9,
+      "duration_sec": 20.1,
+      "energy": 0.1335,
+      "section": "chorus",
+      "selected": true,
+      "url": "/library/songs/highest/loops/bass_chorus_6.mp3"
+    },
+    {
+      "file": "bass_solo_7.mp3",
+      "category": "bass",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 9,
+      "duration_sec": 20.1,
+      "energy": 0.1337,
+      "section": "solo",
+      "selected": true,
+      "url": "/library/songs/highest/loops/bass_solo_7.mp3"
+    },
+    {
+      "file": "bass_solo_8.mp3",
+      "category": "bass",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 9,
+      "duration_sec": 20.12,
+      "energy": 0.1299,
+      "section": "solo",
+      "selected": true,
+      "url": "/library/songs/highest/loops/bass_solo_8.mp3"
+    },
+    {
+      "file": "bass_chorus_9.mp3",
+      "category": "bass",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 15,
+      "duration_sec": 35.01,
+      "energy": 0.1279,
+      "section": "chorus",
+      "selected": true,
+      "url": "/library/songs/highest/loops/bass_chorus_9.mp3"
+    },
+    {
+      "file": "bass_outro_10.mp3",
+      "category": "bass",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 7,
+      "duration_sec": 15.12,
+      "energy": 0.1188,
+      "section": "outro",
+      "selected": true,
+      "url": "/library/songs/highest/loops/bass_outro_10.mp3"
+    },
+    {
+      "file": "drums_intro_1.mp3",
+      "category": "foundation",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 9,
+      "duration_sec": 20.11,
+      "energy": 0.0228,
+      "section": "intro",
+      "selected": true,
+      "url": "/library/songs/highest/loops/drums_intro_1.mp3"
+    },
+    {
+      "file": "drums_intro_2.mp3",
+      "category": "foundation",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 9,
+      "duration_sec": 19.95,
+      "energy": 0.0289,
+      "section": "intro",
+      "selected": true,
+      "url": "/library/songs/highest/loops/drums_intro_2.mp3"
+    },
+    {
+      "file": "drums_intro_3.mp3",
+      "category": "groove",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 11,
+      "duration_sec": 24.93,
+      "energy": 0.1323,
+      "section": "intro",
+      "selected": true,
+      "url": "/library/songs/highest/loops/drums_intro_3.mp3"
+    },
+    {
+      "file": "drums_verse_4.mp3",
+      "category": "groove",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 7,
+      "duration_sec": 15.1,
+      "energy": 0.1336,
+      "section": "verse",
+      "selected": true,
+      "url": "/library/songs/highest/loops/drums_verse_4.mp3"
+    },
+    {
+      "file": "drums_verse_5.mp3",
+      "category": "groove",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 9,
+      "duration_sec": 19.94,
+      "energy": 0.133,
+      "section": "verse",
+      "selected": true,
+      "url": "/library/songs/highest/loops/drums_verse_5.mp3"
+    },
+    {
+      "file": "drums_chorus_6.mp3",
+      "category": "groove",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 9,
+      "duration_sec": 20.18,
+      "energy": 0.1328,
+      "section": "chorus",
+      "selected": true,
+      "url": "/library/songs/highest/loops/drums_chorus_6.mp3"
+    },
+    {
+      "file": "drums_solo_7.mp3",
+      "category": "groove",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 9,
+      "duration_sec": 20.06,
+      "energy": 0.1301,
+      "section": "solo",
+      "selected": true,
+      "url": "/library/songs/highest/loops/drums_solo_7.mp3"
+    },
+    {
+      "file": "drums_solo_8.mp3",
+      "category": "foundation",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 9,
+      "duration_sec": 20.08,
+      "energy": 0.1237,
+      "section": "solo",
+      "selected": true,
+      "url": "/library/songs/highest/loops/drums_solo_8.mp3"
+    },
+    {
+      "file": "drums_chorus_9.mp3",
+      "category": "foundation",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 15,
+      "duration_sec": 34.89,
+      "energy": 0.1229,
+      "section": "chorus",
+      "selected": true,
+      "url": "/library/songs/highest/loops/drums_chorus_9.mp3"
+    },
+    {
+      "file": "drums_outro_10.mp3",
+      "category": "foundation",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 7,
+      "duration_sec": 14.96,
+      "energy": 0.1169,
+      "section": "outro",
+      "selected": true,
+      "url": "/library/songs/highest/loops/drums_outro_10.mp3"
+    },
+    {
+      "file": "other_intro_1.mp3",
+      "category": "texture",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 9,
+      "duration_sec": 20.01,
+      "energy": 0.0781,
+      "section": "intro",
+      "selected": true,
+      "url": "/library/songs/highest/loops/other_intro_1.mp3"
+    },
+    {
+      "file": "other_intro_2.mp3",
+      "category": "texture",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 9,
+      "duration_sec": 20.05,
+      "energy": 0.0776,
+      "section": "intro",
+      "selected": true,
+      "url": "/library/songs/highest/loops/other_intro_2.mp3"
+    },
+    {
+      "file": "other_intro_3.mp3",
+      "category": "texture",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 11,
+      "duration_sec": 24.99,
+      "energy": 0.0744,
+      "section": "intro",
+      "selected": false,
+      "url": "/library/songs/highest/loops/other_intro_3.mp3"
+    },
+    {
+      "file": "other_verse_4.mp3",
+      "category": "texture",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 7,
+      "duration_sec": 15.1,
+      "energy": 0.083,
+      "section": "verse",
+      "selected": true,
+      "url": "/library/songs/highest/loops/other_verse_4.mp3"
+    },
+    {
+      "file": "other_verse_5.mp3",
+      "category": "harmonic_bed",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 9,
+      "duration_sec": 20.04,
+      "energy": 0.0862,
+      "section": "verse",
+      "selected": true,
+      "url": "/library/songs/highest/loops/other_verse_5.mp3"
+    },
+    {
+      "file": "other_chorus_6.mp3",
+      "category": "harmonic_bed",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 9,
+      "duration_sec": 20.06,
+      "energy": 0.0918,
+      "section": "chorus",
+      "selected": true,
+      "url": "/library/songs/highest/loops/other_chorus_6.mp3"
+    },
+    {
+      "file": "other_solo_7.mp3",
+      "category": "harmonic_bed",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 9,
+      "duration_sec": 20.04,
+      "energy": 0.097,
+      "section": "solo",
+      "selected": true,
+      "url": "/library/songs/highest/loops/other_solo_7.mp3"
+    },
+    {
+      "file": "other_solo_8.mp3",
+      "category": "harmonic_bed",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 9,
+      "duration_sec": 20.14,
+      "energy": 0.092,
+      "section": "solo",
+      "selected": true,
+      "url": "/library/songs/highest/loops/other_solo_8.mp3"
+    },
+    {
+      "file": "other_chorus_9.mp3",
+      "category": "harmonic_bed",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 15,
+      "duration_sec": 34.99,
+      "energy": 0.094,
+      "section": "chorus",
+      "selected": true,
+      "url": "/library/songs/highest/loops/other_chorus_9.mp3"
+    },
+    {
+      "file": "other_outro_10.mp3",
+      "category": "texture",
+      "mode": "loop",
+      "volume": -12.0,
+      "bars": 7,
+      "duration_sec": 15.14,
+      "energy": 0.0723,
+      "section": "outro",
+      "selected": true,
+      "url": "/library/songs/highest/loops/other_outro_10.mp3"
+    },
+    {
+      "file": "vocals_phrase_solo_1.mp3",
+      "category": "accent",
+      "mode": "oneshot",
+      "volume": -12.0,
+      "bars": 1,
+      "duration_sec": 2.58,
+      "energy": 0.0719,
+      "section": "solo",
+      "selected": true,
+      "url": "/library/songs/highest/loops/vocals_phrase_solo_1.mp3"
+    }
+  ]
+}

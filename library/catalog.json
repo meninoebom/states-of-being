@@ -1,0 +1,86 @@
+[
+  {
+    "slug": "highest",
+    "name": "Highest",
+    "bpm": 97,
+    "time_signature": 4,
+    "total_loops": 31,
+    "sections": [
+      "intro",
+      "verse",
+      "chorus",
+      "solo",
+      "outro"
+    ],
+    "categories": [
+      "bass",
+      "foundation",
+      "groove",
+      "texture",
+      "harmonic_bed",
+      "accent"
+    ]
+  },
+  {
+    "slug": "if-i-had-a-million",
+    "name": "If I Had A Million",
+    "bpm": 98,
+    "time_signature": 4,
+    "total_loops": 48,
+    "sections": [
+      "intro",
+      "verse",
+      "chorus",
+      "outro"
+    ],
+    "categories": [
+      "texture",
+      "harmonic_bed",
+      "hook",
+      "accent"
+    ]
+  },
+  {
+    "slug": "when-angels-sing",
+    "name": "When Angels Sing",
+    "bpm": 128,
+    "time_signature": 4,
+    "total_loops": 56,
+    "sections": [
+      "chorus",
+      "verse",
+      "outro",
+      "inst"
+    ],
+    "categories": [
+      "bass",
+      "groove",
+      "foundation",
+      "texture",
+      "harmonic_bed",
+      "hook",
+      "accent"
+    ]
+  },
+  {
+    "slug": "sweet-thang",
+    "name": "Sweet Thang",
+    "bpm": 81,
+    "time_signature": 4,
+    "total_loops": 30,
+    "sections": [
+      "intro",
+      "verse",
+      "chorus"
+    ],
+    "categories": [
+      "bass",
+      "groove",
+      "foundation",
+      "harmonic_bed",
+      "texture",
+      "accent",
+      "hook"
+    ]
+  }
+]

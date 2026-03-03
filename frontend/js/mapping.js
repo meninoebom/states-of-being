@@ -44,6 +44,25 @@ const VOLUME_MAP = {
     bass: -10,
     accent: -14,
   },
+  // Relational readings (two bodies)
+  unison: {
+    hook: -4,
+    harmonic_bed: -4,
+    texture: -6,
+    foundation: -8,
+    groove: -10,
+    bass: -8,
+    accent: -16,
+  },
+  opposition: {
+    groove: -2,
+    accent: -4,
+    bass: -4,
+    foundation: -6,
+    harmonic_bed: -14,
+    texture: -14,
+    hook: -16,
+  },
 };
 
 // Baseline when no reading is strongly active

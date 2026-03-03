@@ -256,4 +256,71 @@ export class MovementDetector {
 
     return out;
   }
+
+  /** Expose velocity history for relational computation (synchrony). */
+  getVelocityHistory() {
+    return this.velocityHistory;
+  }
+}
+
+// --- Relational qualities (cross-body) ---
+// Ported from Ralf's relational.ts. Pure function, no state.
+
+const QUALITY_KEYS = ['velocity', 'jerkiness', 'symmetry', 'coherence', 'contraction', 'verticality', 'ankleSpread', 'wristSpread'];
+
+/**
+ * Compute relational qualities between two bodies.
+ * @param {Object} q1 — qualities from body 1 (0-1 values)
+ * @param {Object} q2 — qualities from body 2 (0-1 values)
+ * @param {MovementDetector} det1 — detector 1 (for velocity history)
+ * @param {MovementDetector} det2 — detector 2 (for velocity history)
+ * @returns {{ synchrony: number, contrast: number, aggregate_energy: number }}
+ */
+export function computeRelational(q1, q2, det1, det2) {
+  // Synchrony: Pearson correlation of velocity histories
+  const h1 = det1.getVelocityHistory();
+  const h2 = det2.getVelocityHistory();
+  const synchrony = pearsonCorrelation(h1, h2);
+
+  // Contrast: L2 distance of quality vectors, normalized to 0-1
+  // Max possible L2 distance for N dimensions of [0,1] values = sqrt(N)
+  let sumSq = 0;
+  for (const k of QUALITY_KEYS) {
+    const d = (q1[k] ?? 0) - (q2[k] ?? 0);
+    sumSq += d * d;
+  }
+  const maxDist = Math.sqrt(QUALITY_KEYS.length);
+  const contrast = Math.sqrt(sumSq) / maxDist;
+
+  // Aggregate energy: mean velocity across both bodies
+  const aggregate_energy = ((q1.velocity ?? 0) + (q2.velocity ?? 0)) / 2;
+
+  return { synchrony, contrast, aggregate_energy };
+}
+
+function pearsonCorrelation(a, b) {
+  const n = Math.min(a.length, b.length);
+  if (n < 5) return 0;
+
+  // Use the last n values from each
+  const x = a.slice(-n);
+  const y = b.slice(-n);
+
+  let sumX = 0, sumY = 0;
+  for (let i = 0; i < n; i++) { sumX += x[i]; sumY += y[i]; }
+  const meanX = sumX / n, meanY = sumY / n;
+
+  let num = 0, denomX = 0, denomY = 0;
+  for (let i = 0; i < n; i++) {
+    const dx = x[i] - meanX, dy = y[i] - meanY;
+    num += dx * dy;
+    denomX += dx * dx;
+    denomY += dy * dy;
+  }
+
+  const denom = Math.sqrt(denomX * denomY);
+  if (denom < 1e-10) return 0;
+
+  // Pearson is -1 to 1; map to 0-1 (0 = opposite, 0.5 = uncorrelated, 1 = in sync)
+  return (num / denom + 1) / 2;
 }
