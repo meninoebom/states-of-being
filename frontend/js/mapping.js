@@ -71,7 +71,7 @@ const QUIET_VOLUMES = {
   harmonic_bed: -12, hook: -40, texture: -8, accent: -40,
 };
 
-const CATEGORIES = ['foundation', 'groove', 'bass', 'harmonic_bed', 'hook', 'texture', 'accent'];
+import { CATEGORIES } from './constants.js';
 
 /**
  * Apply readings to audio engine.
@@ -79,8 +79,9 @@ const CATEGORIES = ['foundation', 'groove', 'bass', 'harmonic_bed', 'hook', 'tex
  *
  * @param {Array} readings — [{ id, value, active }, ...]
  * @param {AudioEngine} engine
+ * @param {Array|null} allowedCategories — if set, only these categories get volume; others muted
  */
-export function applyMapping(readings, engine) {
+export function applyMapping(readings, engine, allowedCategories = null) {
   if (!engine.loaded) return;
 
   // Start with quiet baseline
@@ -112,6 +113,15 @@ export function applyMapping(readings, engine) {
   if (totalWeight > 0) {
     for (const cat of CATEGORIES) {
       targetVol[cat] = contributions[cat] / totalWeight;
+    }
+  }
+
+  // Phase-gate: mute categories not in current phase
+  if (allowedCategories) {
+    for (const cat of CATEGORIES) {
+      if (!allowedCategories.includes(cat)) {
+        targetVol[cat] = -60;
+      }
     }
   }
 

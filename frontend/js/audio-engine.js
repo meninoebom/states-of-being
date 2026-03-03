@@ -3,7 +3,7 @@
  * Uses Tone.Transport to keep all loops synchronized.
  */
 
-const CATEGORIES = ['foundation', 'groove', 'bass', 'harmonic_bed', 'hook', 'texture', 'accent'];
+import { CATEGORIES } from './constants.js';
 
 const DEFAULT_FILTER_FREQ = {
   bass: 1000, texture: 8000, foundation: 5000, groove: 5000,
@@ -15,6 +15,7 @@ export class AudioEngine {
     this.loaded = false;
     this.metadata = null;
     this.players = {};       // category → [{player, track}, ...]
+    this.activeIndex = {};   // category → index of currently playing loop
     this.gains = {};         // category → Tone.Gain
     this.filters = {};       // category → Tone.Filter
     this.masterGain = null;
@@ -82,6 +83,11 @@ export class AudioEngine {
       if (r) this.players[r.cat].push({ player: r.player, track: r.track });
     }
 
+    // Default: first loop in each category is active
+    for (const cat of CATEGORIES) {
+      this.activeIndex[cat] = 0;
+    }
+
     this.loaded = true;
     console.log('AudioEngine loaded:', Object.entries(this.players).map(([k, v]) => `${k}:${v.length}`).join(', '));
   }
@@ -89,28 +95,50 @@ export class AudioEngine {
   start() {
     if (!this.loaded) return;
 
-    const bpm = this.metadata?.bpm || 120;
-    const timeSig = this.metadata?.time_signature || 4;
-    const barDur = (60 / bpm) * timeSig; // seconds per bar
+    this._barDur = this._computeBarDur();
 
-    // Sync all loop players to Transport so they share the same clock.
-    // Quantize each loop's end point to exact bar boundaries to prevent drift.
+    // Only sync+start the active loop per category (one at a time = clean mix).
     for (const [cat, entries] of Object.entries(this.players)) {
-      for (const { player, track } of entries) {
+      const activeIdx = this.activeIndex[cat] ?? 0;
+      for (let i = 0; i < entries.length; i++) {
+        const { player, track } = entries[i];
         if (!player.loaded || track.mode !== 'loop') continue;
         try {
-          // Snap loop length to nearest whole bar count
-          const rawDur = player.buffer.duration;
-          const barCount = Math.round(rawDur / barDur);
-          if (barCount > 0) {
-            player.loopEnd = barCount * barDur;
+          this._quantizeLoop(player);
+          if (i === activeIdx) {
+            player.sync().start(0);
           }
-          player.sync().start(0);
+          // Non-active loops stay loaded but not synced
         } catch (e) { console.warn(`Could not start ${track.file}:`, e); }
       }
     }
 
     Tone.Transport.start();
+  }
+
+  _computeBarDur() {
+    const bpm = this.metadata?.bpm || 120;
+    const timeSig = this.metadata?.time_signature || 4;
+    return (60 / bpm) * timeSig;
+  }
+
+  _quantizeLoop(player) {
+    const rawDur = player.buffer.duration;
+    const barCount = Math.round(rawDur / this._barDur);
+    if (barCount > 0) {
+      player.loopEnd = barCount * this._barDur;
+    }
+  }
+
+  getBarDuration() {
+    return this._barDur || this._computeBarDur();
+  }
+
+  /** Fade all categories to silence over fadeDurSec seconds. */
+  fadeOutAll(fadeDurSec) {
+    for (const cat of CATEGORIES) {
+      this.gains[cat]?.gain.rampTo(0, fadeDurSec);
+    }
   }
 
   stop() {
@@ -142,6 +170,53 @@ export class AudioEngine {
     }
   }
 
+  /**
+   * Swap the active loop in a category slot, bar-quantized.
+   * @param {string} category
+   * @param {number} index — index into this.players[category]
+   */
+  setActiveLoop(category, index) {
+    const entries = this.players[category];
+    if (!entries || index < 0 || index >= entries.length) return;
+    if (this.activeIndex[category] === index) return;
+
+    const barDur = this._barDur || this._computeBarDur();
+    const oldIdx = this.activeIndex[category];
+    this.activeIndex[category] = index;
+
+    // Schedule swap on next bar boundary
+    Tone.Transport.scheduleOnce((time) => {
+      // Fade out old
+      if (oldIdx < entries.length) {
+        const old = entries[oldIdx].player;
+        old.volume.rampTo(-Infinity, barDur, time);
+        // Unsync after fade completes
+        Tone.Transport.scheduleOnce(() => {
+          try { old.unsync(); } catch (e) { /* ignore */ }
+        }, time + barDur + 0.1);
+      }
+      // Fade in new
+      const { player, track } = entries[index];
+      if (player.loaded && track.mode === 'loop') {
+        this._quantizeLoop(player);
+        player.sync().start(0);
+        player.volume.value = -Infinity;
+        player.volume.rampTo(track.volume || -12, barDur, time);
+      }
+    }, `@${Tone.Transport.timeSignature}n`); // next bar boundary
+  }
+
+  /** Get available loops for a category with their section labels. */
+  getLoopsForCategory(category) {
+    const entries = this.players[category] || [];
+    return entries.map(({ track }, i) => ({
+      index: i,
+      section: track.section,
+      file: track.file,
+      active: i === this.activeIndex[category],
+    }));
+  }
+
   _triggerRandomOneshot(category, volumeDb) {
     const entries = this.players[category];
     if (!entries || entries.length === 0) return;
@@ -170,7 +245,7 @@ export class AudioEngine {
     for (const f of Object.values(this.filters)) { try { f.dispose(); } catch (e) { /* ignore */ } }
     if (this.masterGain) { try { this.masterGain.dispose(); } catch (e) { /* ignore */ } }
     if (this.masterFilter) { try { this.masterFilter.dispose(); } catch (e) { /* ignore */ } }
-    this.players = {}; this.gains = {}; this.filters = {};
+    this.players = {}; this.gains = {}; this.filters = {}; this.activeIndex = {};
     this.loaded = false; this.metadata = null; this.categoryVolumes = {};
   }
 }

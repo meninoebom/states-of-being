@@ -9,6 +9,8 @@ import { LoopGrid } from './loop-grid.js';
 import { MovementDetector, computeRelational } from './movement.js';
 import { ReadingsEngine, RELATIONAL_READINGS } from './readings.js';
 import { applyMapping } from './mapping.js';
+import { ArcEngine } from './arc.js';
+import { CATEGORIES } from './constants.js';
 
 const API_URL = window.location.hostname === 'localhost'
   ? 'http://localhost:8000'
@@ -30,7 +32,10 @@ const modeSelect = document.getElementById('mode-select');
 const debugPanel = document.getElementById('debug-panel');
 let playing = false;
 let songLoaded = false;
-let mode = 'manual'; // 'manual' | 'webcam' | 'blend'
+let mode = 'manual'; // 'manual' | 'webcam' | 'blend' | 'arc'
+let arc = null;      // ArcEngine instance (created on arc mode play)
+let lastFrameTime = null; // for dt calculation
+const phaseIndicator = document.getElementById('phase-indicator');
 
 // MediaPipe state
 let poseLandmarker = null;
@@ -88,20 +93,35 @@ playBtn.addEventListener('click', async () => {
   if (playing) {
     engine.stop();
     playing = false;
+    arc = null;
+    if (phaseIndicator) phaseIndicator.style.display = 'none';
     setStatus('Stopped');
   } else {
     await Tone.start();
     engine.start();
 
-    // In manual mode, set everything audible. In webcam/blend, let mapping drive it.
     if (mode === 'manual') {
-      for (const cat of ['foundation', 'groove', 'bass', 'harmonic_bed', 'hook', 'texture', 'accent']) {
+      for (const cat of CATEGORIES) {
         engine.setCategoryVolume(cat, -8);
       }
+    } else if (mode === 'arc') {
+      arc = new ArcEngine();
+      lastFrameTime = null;
+      arc.onPhaseChange = handlePhaseChange;
+      arc.onComplete = handleArcComplete;
+      // Start in AWAIT: only texture audible, quiet
+      for (const cat of CATEGORIES) {
+        engine.setCategoryVolume(cat, cat === 'texture' ? -12 : -60);
+      }
+      if (phaseIndicator) {
+        phaseIndicator.style.display = 'block';
+        phaseIndicator.textContent = 'AWAIT — move to begin';
+      }
+      setStatus('Arc mode — waiting for movement...');
     }
 
     playing = true;
-    setStatus('Playing');
+    if (mode !== 'arc') setStatus('Playing');
   }
   updatePlayButton();
 });
@@ -111,7 +131,7 @@ if (modeSelect) {
   modeSelect.addEventListener('change', async (e) => {
     mode = e.target.value;
 
-    if (mode === 'webcam' || mode === 'blend') {
+    if (mode === 'webcam' || mode === 'blend' || mode === 'arc') {
       await ensureWebcam();
       if (!webcamRunning) {
         mode = 'manual';
@@ -122,17 +142,20 @@ if (modeSelect) {
 
     if (mode === 'manual') {
       stopWebcam();
+      arc = null;
       if (debugPanel) debugPanel.style.display = 'none';
       if (skeletonCanvas) skeletonCanvas.style.display = 'none';
+      if (phaseIndicator) phaseIndicator.style.display = 'none';
       // Restore manual volumes
       if (playing) {
-        for (const cat of ['foundation', 'groove', 'bass', 'harmonic_bed', 'hook', 'texture', 'accent']) {
+        for (const cat of CATEGORIES) {
           engine.setCategoryVolume(cat, -8);
         }
       }
     } else {
       if (debugPanel) debugPanel.style.display = 'block';
       if (skeletonCanvas) skeletonCanvas.style.display = 'block';
+      if (mode === 'arc' && phaseIndicator) phaseIndicator.style.display = 'block';
     }
   });
 }
@@ -232,11 +255,34 @@ function detectLoop() {
     // Apply to audio
     if (playing && (mode === 'webcam' || mode === 'blend')) {
       applyMapping(finalReadings, engine);
+    } else if (playing && mode === 'arc' && arc) {
+      // Feed arc engine
+      const now2 = performance.now() / 1000;
+      const dt = lastFrameTime ? now2 - lastFrameTime : 1 / 30;
+      lastFrameTime = now2;
+      const avgVelocity = allQualities.length > 0
+        ? allQualities.reduce((s, q) => s + (q.velocity || 0), 0) / allQualities.length
+        : 0;
+      arc.update(dt, avgVelocity);
+
+      const phase = arc.getCurrentPhase();
+      if (phase) {
+        applyMapping(finalReadings, engine, phase.categories);
+        updatePhaseIndicator(phase);
+      }
     }
 
     // Draw skeletons + debug
     drawSkeletons(results.landmarks, bodyCount, finalReadings);
     updateDebug(allQualities, finalReadings, relQualities);
+  } else if (playing && mode === 'arc' && arc) {
+    // No body detected — still tick arc so timed phases advance
+    const now2 = performance.now() / 1000;
+    const dt = lastFrameTime ? now2 - lastFrameTime : 1 / 30;
+    lastFrameTime = now2;
+    arc.update(dt, 0);
+    const phase = arc.getCurrentPhase();
+    if (phase) updatePhaseIndicator(phase);
   }
 
   requestAnimationFrame(detectLoop);
@@ -366,10 +412,60 @@ function updateDebug(allQualities, readingValues, relQualities) {
   debugPanel.textContent = text;
 }
 
-function bar(v) {
-  const width = 16;
+function bar(v, width = 16) {
   const filled = Math.round(v * width);
   return '█'.repeat(filled) + '░'.repeat(width - filled);
+}
+
+// --- Arc mode handlers ---
+
+function handlePhaseChange(phase) {
+  const section = arc.config.sectionMap[phase.id];
+  if (section) {
+    swapLoopsToSection(section);
+  }
+  setStatus(`Arc: ${phase.id.toUpperCase()}`);
+  if (phaseIndicator) updatePhaseIndicator(arc.getCurrentPhase());
+  grid.setAvailableCategories(phase.categories);
+}
+
+function swapLoopsToSection(targetSection) {
+  for (const cat of CATEGORIES) {
+    const loops = engine.getLoopsForCategory(cat);
+    if (loops.length === 0) continue;
+    // Find a loop matching the target section
+    const match = loops.find(l => l.section === targetSection && !l.active);
+    if (match) {
+      engine.setActiveLoop(cat, match.index);
+    }
+    // If no match, keep current loop (fallback)
+  }
+}
+
+function handleArcComplete() {
+  setStatus('Arc complete');
+  if (phaseIndicator) phaseIndicator.textContent = 'COMPLETE';
+  // Fade all to silence over ~8 bars
+  const fadeDur = engine.getBarDuration() * 8;
+  engine.fadeOutAll(fadeDur);
+  // Stop after fade
+  setTimeout(() => {
+    engine.stop();
+    playing = false;
+    arc = null;
+    updatePlayButton();
+    setStatus('Arc complete — click Play to go again');
+  }, fadeDur * 1000 + 500);
+}
+
+let _lastPhaseIndicatorPct = -1;
+function updatePhaseIndicator(phase) {
+  if (!phaseIndicator) return;
+  const pct = Math.round(phase.progress * 100);
+  // Only update DOM when visible progress changes
+  if (pct === _lastPhaseIndicatorPct) return;
+  _lastPhaseIndicatorPct = pct;
+  phaseIndicator.textContent = `${phase.id.toUpperCase()} ${bar(phase.progress, 20)} ${pct}%  (${phase.index + 1}/${phase.totalPhases})`;
 }
 
 // --- Init ---

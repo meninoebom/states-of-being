@@ -219,6 +219,32 @@ main {
   z-index: 100;
 }
 
+/* Phase indicator */
+#phase-indicator {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  background: rgba(10, 10, 15, 0.92);
+  border: 1px solid #1a1a2e;
+  border-radius: 8px;
+  padding: 12px 20px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 13px;
+  color: #8af;
+  letter-spacing: 1px;
+  z-index: 100;
+}
+
+/* Dimmed grid cells (phase-gated) */
+.grid-cell.phase-unavailable {
+  opacity: 0.15;
+  pointer-events: none;
+}
+
+.grid-label.phase-unavailable {
+  opacity: 0.3;
+}
+
 /* Debug panel */
 #debug-panel {
   position: fixed;
