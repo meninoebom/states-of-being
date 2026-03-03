@@ -7,11 +7,7 @@
  * Lit (blue) = playing. Dim = muted.
  */
 
-const CATEGORY_ORDER = ['groove', 'foundation', 'bass', 'harmonic_bed', 'hook', 'texture', 'accent'];
-const CATEGORY_LABELS = {
-  groove: 'Groove', foundation: 'Foundation', bass: 'Bass',
-  harmonic_bed: 'Harmony', hook: 'Hook', texture: 'Texture', accent: 'Accent',
-};
+import { CATEGORY_ORDER, CATEGORY_LABELS } from './constants.js';
 
 export class LoopGrid {
   constructor(container) {
@@ -56,7 +52,9 @@ export class LoopGrid {
 
     // Category rows
     for (const cat of presentCategories) {
-      grid.appendChild(this._cell(CATEGORY_LABELS[cat] || cat, 'grid-label'));
+      const label = this._cell(CATEGORY_LABELS[cat] || cat, 'grid-label');
+      label.dataset.category = cat;
+      grid.appendChild(label);
 
       for (const sectionLabel of sectionLabels) {
         const tracks = metadata.tracks.filter(t =>
@@ -64,10 +62,13 @@ export class LoopGrid {
         );
 
         if (tracks.length === 0) {
-          grid.appendChild(this._cell('', 'grid-cell empty'));
+          const emptyCell = this._cell('', 'grid-cell empty');
+          emptyCell.dataset.category = cat;
+          grid.appendChild(emptyCell);
         } else {
           const cell = document.createElement('div');
           cell.className = 'grid-cell has-track active';
+          cell.dataset.category = cat;
           cell.title = `${CATEGORY_LABELS[cat] || cat} — ${sectionLabel}\n${tracks.map(t => t.file).join('\n')}\nClick to mute/unmute`;
 
           const dot = document.createElement('div');
@@ -90,6 +91,14 @@ export class LoopGrid {
     }
 
     this.container.appendChild(grid);
+  }
+
+  /** Dim categories not in the allowed list (for arc mode phase gating). */
+  setAvailableCategories(categories) {
+    if (!this.container) return;
+    this.container.querySelectorAll('[data-category]').forEach(el => {
+      el.classList.toggle('phase-unavailable', !categories.includes(el.dataset.category));
+    });
   }
 
   _cell(text, className) {
