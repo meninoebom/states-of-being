@@ -34,6 +34,7 @@ let playing = false;
 let songLoaded = false;
 let mode = 'manual'; // 'manual' | 'webcam' | 'blend' | 'arc'
 let arc = null;      // ArcEngine instance (created on arc mode play)
+let arcFadeTimeout = null; // timeout ID for post-arc fade-to-silence
 let lastFrameTime = null; // for dt calculation
 const phaseIndicator = document.getElementById('phase-indicator');
 
@@ -94,6 +95,7 @@ playBtn.addEventListener('click', async () => {
     engine.stop();
     playing = false;
     arc = null;
+    if (arcFadeTimeout) { clearTimeout(arcFadeTimeout); arcFadeTimeout = null; }
     if (phaseIndicator) phaseIndicator.style.display = 'none';
     setStatus('Stopped');
   } else {
@@ -117,6 +119,7 @@ playBtn.addEventListener('click', async () => {
         phaseIndicator.style.display = 'block';
         phaseIndicator.textContent = 'AWAIT — move to begin';
       }
+      grid.setAvailableCategories(['texture']);
       setStatus('Arc mode — waiting for movement...');
     }
 
@@ -437,8 +440,9 @@ function swapLoopsToSection(targetSection) {
     const match = loops.find(l => l.section === targetSection && !l.active);
     if (match) {
       engine.setActiveLoop(cat, match.index);
+    } else {
+      console.log(`swapLoopsToSection: no "${targetSection}" loop for ${cat}, keeping current`);
     }
-    // If no match, keep current loop (fallback)
   }
 }
 
@@ -448,8 +452,9 @@ function handleArcComplete() {
   // Fade all to silence over ~8 bars
   const fadeDur = engine.getBarDuration() * 8;
   engine.fadeOutAll(fadeDur);
-  // Stop after fade
-  setTimeout(() => {
+  // Stop after fade (store ID so manual stop can cancel)
+  arcFadeTimeout = setTimeout(() => {
+    arcFadeTimeout = null;
     engine.stop();
     playing = false;
     arc = null;

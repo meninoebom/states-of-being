@@ -136,7 +136,7 @@ export class ArcEngine {
 
     const [min, max] = phase.duration;
     const mid = (min + max) / 2;
-    const engagement = this._engagementLevel();
+    const engagement = Math.max(0, Math.min(1, this._engagementLevel()));
 
     // High engagement → stretch toward max, low → compress toward min
     // engagement 0.5 = mid, 1.0 = max, 0.0 = min

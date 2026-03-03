@@ -177,7 +177,10 @@ export class AudioEngine {
    */
   setActiveLoop(category, index) {
     const entries = this.players[category];
-    if (!entries || index < 0 || index >= entries.length) return;
+    if (!entries || index < 0 || index >= entries.length) {
+      console.warn(`setActiveLoop: invalid category="${category}" index=${index}`);
+      return;
+    }
     if (this.activeIndex[category] === index) return;
 
     const barDur = this._barDur || this._computeBarDur();
@@ -192,7 +195,7 @@ export class AudioEngine {
         old.volume.rampTo(-Infinity, barDur, time);
         // Unsync after fade completes
         Tone.Transport.scheduleOnce(() => {
-          try { old.unsync(); } catch (e) { /* ignore */ }
+          try { old.unsync(); } catch (e) { console.warn(`unsync failed for ${category}:`, e); }
         }, time + barDur + 0.1);
       }
       // Fade in new
