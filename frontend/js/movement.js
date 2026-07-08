@@ -107,7 +107,6 @@ export class MovementDetector {
       contraction:   new AdaptiveRange(0.01, 0.15),
       verticality:   new AdaptiveRange(0.02, 0.2),
       symmetry:      new AdaptiveRange(0, 1, 0.999),
-      limbExtension: new AdaptiveRange(0, 0.3),
       coherence:     new AdaptiveRange(0, 0.01, 0.999),
       ankleSpread:   new AdaptiveRange(0, 0.2),
       wristSpread:   new AdaptiveRange(0, 0.3),
@@ -170,16 +169,6 @@ export class MovementDetector {
     if (nose.visibility > 0.3 && lHip.visibility > 0.3 && rHip.visibility > 0.3) {
       const hipMidY = (lHip.y + rHip.y) / 2;
       out.verticality = this.ranges.verticality.normalize(hipMidY - nose.y);
-    }
-
-    // Limb extension: extremity distance from body center
-    const centerX = (landmarks[11].x + landmarks[12].x + landmarks[23].x + landmarks[24].x) / 4;
-    const centerY = (landmarks[11].y + landmarks[12].y + landmarks[23].y + landmarks[24].y) / 4;
-    const extDists = [15, 16, 27, 28]
-      .filter(i => landmarks[i].visibility > 0.3)
-      .map(i => Math.sqrt((landmarks[i].x - centerX) ** 2 + (landmarks[i].y - centerY) ** 2));
-    if (extDists.length > 0) {
-      out._limbExtension = this.ranges.limbExtension.normalize(mean(extDists));
     }
 
     // Ankle spread
