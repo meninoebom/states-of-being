@@ -1,5 +1,9 @@
 # States of Being — Song Blender
 
+## Auto-merge
+PRs in this repo use auto-merge. After creating a PR, run `gh pr merge --auto --squash`.
+CI runs `.github/workflows/ci.yml` (job `check`); `main` requires it to pass before merge.
+
 ## What Is This?
 
 Two things in one repo:

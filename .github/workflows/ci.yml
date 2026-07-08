@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    name: check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+          pip install pytest
+
+      - name: Syntax check
+        run: python -m compileall backend/app
+
+      - name: Run tests
+        run: |
+          # Tolerate "no tests collected" (pytest exit code 5) until the suite
+          # lands in issue #17. Any real test failure still fails the job.
+          # `|| code=$?` keeps bash -e from aborting before we inspect the code.
+          pytest backend -q || code=$?
+          code=${code:-0}
+          if [ "$code" -eq 5 ]; then
+            echo "No tests collected yet — passing."
+            exit 0
+          fi
+          exit "$code"
