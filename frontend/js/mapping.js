@@ -66,7 +66,7 @@ const VOLUME_MAP = {
 };
 
 // Baseline when no reading is strongly active
-const QUIET_VOLUMES = {
+export const QUIET_VOLUMES = {
   foundation: -20, groove: -20, bass: -14,
   harmonic_bed: -12, hook: -40, texture: -8, accent: -40,
 };
