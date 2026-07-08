@@ -8,7 +8,7 @@ import { SongPicker } from './song-picker.js';
 import { LoopGrid } from './loop-grid.js';
 import { MovementDetector, computeRelational } from './movement.js';
 import { ReadingsEngine, RELATIONAL_READINGS } from './readings.js';
-import { applyMapping } from './mapping.js';
+import { applyMapping, QUIET_VOLUMES } from './mapping.js';
 import { ArcEngine } from './arc.js';
 import { CATEGORIES } from './constants.js';
 
@@ -32,11 +32,16 @@ const modeSelect = document.getElementById('mode-select');
 const debugPanel = document.getElementById('debug-panel');
 let playing = false;
 let songLoaded = false;
-let mode = 'manual'; // 'manual' | 'webcam' | 'blend' | 'arc'
+let mode = 'manual'; // 'manual' | 'webcam' | 'arc'
 let arc = null;      // ArcEngine instance (created on arc mode play)
 let arcFadeTimeout = null; // timeout ID for post-arc fade-to-silence
 let lastFrameTime = null; // for dt calculation
 const phaseIndicator = document.getElementById('phase-indicator');
+
+// No-body prompt: nudge the user to step into frame in webcam mode
+const NO_BODY_PROMPT_MS = 3000;
+let lastBodySeen = 0;        // performance.now() of last frame with a body
+let noBodyPromptShown = false;
 
 // MediaPipe state
 let poseLandmarker = null;
@@ -92,75 +97,99 @@ playBtn.addEventListener('click', async () => {
   if (!songLoaded) return;
 
   if (playing) {
-    engine.stop();
-    playing = false;
-    arc = null;
-    if (arcFadeTimeout) { clearTimeout(arcFadeTimeout); arcFadeTimeout = null; }
-    if (phaseIndicator) phaseIndicator.style.display = 'none';
+    stopPlayback();
     setStatus('Stopped');
   } else {
     await Tone.start();
     engine.start();
-
-    if (mode === 'manual') {
-      for (const cat of CATEGORIES) {
-        engine.setCategoryVolume(cat, -8);
-      }
-    } else if (mode === 'arc') {
-      arc = new ArcEngine();
-      lastFrameTime = null;
-      arc.onPhaseChange = handlePhaseChange;
-      arc.onComplete = handleArcComplete;
-      // Start in AWAIT: only texture audible, quiet
-      for (const cat of CATEGORIES) {
-        engine.setCategoryVolume(cat, cat === 'texture' ? -12 : -60);
-      }
-      if (phaseIndicator) {
-        phaseIndicator.style.display = 'block';
-        phaseIndicator.textContent = 'AWAIT — move to begin';
-      }
-      grid.setAvailableCategories(['texture']);
-      setStatus('Arc mode — waiting for movement...');
-    }
-
-    playing = true;
-    if (mode !== 'arc') setStatus('Playing');
+    startPlayback();
   }
   updatePlayButton();
 });
 
+/** Begin playback for the current mode, setting an audible baseline. */
+function startPlayback() {
+  playing = true;
+  lastBodySeen = performance.now();
+  noBodyPromptShown = false;
+
+  if (mode === 'arc') {
+    arc = new ArcEngine();
+    lastFrameTime = null;
+    arc.onPhaseChange = handlePhaseChange;
+    arc.onComplete = handleArcComplete;
+    // Start in AWAIT: only texture audible, quiet
+    for (const cat of CATEGORIES) {
+      engine.setCategoryVolume(cat, cat === 'texture' ? -12 : -60);
+    }
+    if (phaseIndicator) {
+      phaseIndicator.style.display = 'block';
+      phaseIndicator.textContent = 'AWAIT — move to begin';
+    }
+    grid.setAvailableCategories(['texture']);
+    setStatus('Arc mode — waiting for movement...');
+  } else if (mode === 'webcam') {
+    // Audible quiet baseline so the app is never silent while out of frame
+    for (const cat of CATEGORIES) engine.setCategoryVolume(cat, QUIET_VOLUMES[cat]);
+    setStatus('Playing');
+  } else {
+    // manual
+    for (const cat of CATEGORIES) engine.setCategoryVolume(cat, -8);
+    setStatus('Playing');
+  }
+}
+
+/** Stop playback and tear down any mode-specific state (arc, indicators, grid dimming). */
+function stopPlayback() {
+  engine.stop();
+  playing = false;
+  arc = null;
+  if (arcFadeTimeout) { clearTimeout(arcFadeTimeout); arcFadeTimeout = null; }
+  if (phaseIndicator) phaseIndicator.style.display = 'none';
+  noBodyPromptShown = false;
+  grid.setAvailableCategories(CATEGORIES); // un-dim any arc phase gating
+}
+
 // --- Mode switching ---
 if (modeSelect) {
-  modeSelect.addEventListener('change', async (e) => {
-    mode = e.target.value;
+  modeSelect.addEventListener('change', (e) => setMode(e.target.value));
+}
 
-    if (mode === 'webcam' || mode === 'blend' || mode === 'arc') {
-      await ensureWebcam();
-      if (!webcamRunning) {
-        mode = 'manual';
-        modeSelect.value = 'manual';
-        return;
-      }
-    }
+/**
+ * Single entry point for mode transitions. Tears down the previous mode by
+ * stopping playback (an accepted simplification), then wires up the new one.
+ * Movement modes require the webcam; if it fails to start we fall back to manual.
+ */
+async function setMode(newMode) {
+  if (newMode === mode) return;
 
-    if (mode === 'manual') {
-      stopWebcam();
-      arc = null;
-      if (debugPanel) debugPanel.style.display = 'none';
-      if (skeletonCanvas) skeletonCanvas.style.display = 'none';
-      if (phaseIndicator) phaseIndicator.style.display = 'none';
-      // Restore manual volumes
-      if (playing) {
-        for (const cat of CATEGORIES) {
-          engine.setCategoryVolume(cat, -8);
-        }
-      }
-    } else {
-      if (debugPanel) debugPanel.style.display = 'block';
-      if (skeletonCanvas) skeletonCanvas.style.display = 'block';
-      if (mode === 'arc' && phaseIndicator) phaseIndicator.style.display = 'block';
+  // Always tear down: clears playback AND lingering UI (e.g. a completed arc's
+  // phase indicator / grid dimming, where playing is already false).
+  const wasPlaying = playing;
+  stopPlayback();
+  if (wasPlaying) {
+    setStatus('Stopped');
+    updatePlayButton();
+  }
+
+  if (newMode === 'webcam' || newMode === 'arc') {
+    await ensureWebcam();
+    if (!webcamRunning) {
+      newMode = 'manual';
+      modeSelect.value = 'manual';
     }
-  });
+  }
+
+  mode = newMode;
+
+  if (mode === 'manual') {
+    stopWebcam();
+    if (debugPanel) debugPanel.style.display = 'none';
+    if (skeletonCanvas) skeletonCanvas.style.display = 'none';
+  } else {
+    if (debugPanel) debugPanel.style.display = 'block';
+    if (skeletonCanvas) skeletonCanvas.style.display = 'block';
+  }
 }
 
 // --- Webcam / MediaPipe ---
@@ -230,6 +259,12 @@ function detectLoop() {
   const bodyCount = results.landmarks ? results.landmarks.length : 0;
 
   if (bodyCount > 0) {
+    lastBodySeen = now;
+    if (noBodyPromptShown) {
+      noBodyPromptShown = false;
+      setStatus('Playing');
+    }
+
     // Update each detected body
     const allQualities = [];
     const allReadings = [];
@@ -256,7 +291,7 @@ function detectLoop() {
     const finalReadings = [...mergedReadings, ...relReadings];
 
     // Apply to audio
-    if (playing && (mode === 'webcam' || mode === 'blend')) {
+    if (playing && mode === 'webcam') {
       applyMapping(finalReadings, engine);
     } else if (playing && mode === 'arc' && arc) {
       // Feed arc engine
@@ -278,8 +313,16 @@ function detectLoop() {
     // Draw skeletons + debug
     drawSkeletons(results.landmarks, bodyCount, finalReadings);
     updateDebug(allQualities, finalReadings, relQualities);
+  } else if (playing && mode === 'webcam') {
+    // No body detected. The quiet baseline keeps playing (never silent); nudge
+    // the user to step into frame once they've been absent for a moment.
+    if (!noBodyPromptShown && now - lastBodySeen > NO_BODY_PROMPT_MS) {
+      noBodyPromptShown = true;
+      setStatus('Step into frame to shape the music');
+    }
   } else if (playing && mode === 'arc' && arc) {
-    // No body detected — still tick arc so timed phases advance
+    // No body detected — still tick arc so timed phases advance. Arc starts with
+    // audible texture and shows its own AWAIT prompt, so it never hits the trap.
     const now2 = performance.now() / 1000;
     const dt = lastFrameTime ? now2 - lastFrameTime : 1 / 30;
     lastFrameTime = now2;

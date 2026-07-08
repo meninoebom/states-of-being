@@ -20,8 +20,6 @@ export class AudioEngine {
     this.filters = {};       // category → Tone.Filter
     this.masterGain = null;
     this.masterFilter = null;
-    this.oneshotCooldown = 0;
-    this.categoryVolumes = {};
     this.onLoadProgress = null; // callback(loaded, total)
   }
 
@@ -155,7 +153,6 @@ export class AudioEngine {
   setCategoryVolume(category, db) {
     if (!this.gains[category]) return;
     this.gains[category].gain.rampTo(Tone.dbToGain(db), 0.3);
-    this.categoryVolumes[category] = db;
   }
 
   /** Mute/unmute a specific track by filename. */
@@ -220,21 +217,6 @@ export class AudioEngine {
     }));
   }
 
-  _triggerRandomOneshot(category, volumeDb) {
-    const entries = this.players[category];
-    if (!entries || entries.length === 0) return;
-    const { player } = entries[Math.floor(Math.random() * entries.length)];
-    if (!player.loaded) return;
-    try {
-      if (this.gains[category]) {
-        this.gains[category].gain.rampTo(Tone.dbToGain(volumeDb), 0.05);
-        this.gains[category].gain.rampTo(Tone.dbToGain(-60), 2, Tone.now() + 0.5);
-      }
-      player.seek(0);
-      player.start();
-    } catch (e) { console.warn(`Oneshot trigger failed (${category}):`, e); }
-  }
-
   dispose() {
     Tone.Transport.stop();
     Tone.Transport.cancel();
@@ -249,6 +231,6 @@ export class AudioEngine {
     if (this.masterGain) { try { this.masterGain.dispose(); } catch (e) { /* ignore */ } }
     if (this.masterFilter) { try { this.masterFilter.dispose(); } catch (e) { /* ignore */ } }
     this.players = {}; this.gains = {}; this.filters = {}; this.activeIndex = {};
-    this.loaded = false; this.metadata = null; this.categoryVolumes = {};
+    this.loaded = false; this.metadata = null;
   }
 }
