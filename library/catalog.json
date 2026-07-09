@@ -19,7 +19,10 @@
       "texture",
       "harmonic_bed",
       "accent"
-    ]
+    ],
+    "artist": "UNKNOWN - NEEDS REVIEW",
+    "license": "UNKNOWN - NEEDS REVIEW",
+    "duration": 209.32
   },
   {
     "slug": "if-i-had-a-million",
@@ -38,7 +41,10 @@
       "harmonic_bed",
       "hook",
       "accent"
-    ]
+    ],
+    "artist": "UNKNOWN - NEEDS REVIEW",
+    "license": "UNKNOWN - NEEDS REVIEW",
+    "duration": 274.35
   },
   {
     "slug": "when-angels-sing",
@@ -60,7 +66,10 @@
       "harmonic_bed",
       "hook",
       "accent"
-    ]
+    ],
+    "artist": "UNKNOWN - NEEDS REVIEW",
+    "license": "UNKNOWN - NEEDS REVIEW",
+    "duration": 335.49
   },
   {
     "slug": "sweet-thang",
@@ -81,6 +90,9 @@
       "texture",
       "accent",
       "hook"
-    ]
+    ],
+    "artist": "UNKNOWN - NEEDS REVIEW",
+    "license": "UNKNOWN - NEEDS REVIEW",
+    "duration": 189.75
   }
 ]

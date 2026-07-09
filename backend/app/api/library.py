@@ -7,6 +7,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 
+from app.catalog import CatalogValidationError, load_catalog
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -22,11 +23,19 @@ def _library_dir() -> Path:
 
 @router.get("/library")
 def list_songs():
-    """Return the curated song catalog."""
+    """Return the curated song catalog.
+
+    The catalog is validated on load: an entry missing its required `license`
+    field is a server-side data error, so we fail loud (500) rather than serve
+    it. Validation checks presence only. A placeholder license (pending the
+    human legal review in #11/#22) still passes and is served.
+    """
     catalog_path = _library_dir() / "catalog.json"
-    if not catalog_path.exists():
-        return []
-    return json.loads(catalog_path.read_text())
+    try:
+        return load_catalog(catalog_path)
+    except CatalogValidationError:
+        logger.exception("Catalog failed schema validation")
+        raise HTTPException(500, "Song catalog is misconfigured")
 
 
 @router.get("/library/{slug}")
