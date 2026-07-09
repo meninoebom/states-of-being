@@ -7,7 +7,10 @@
  */
 
 // Volume targets per reading (dB). Categories not listed stay at their current level.
-const VOLUME_MAP = {
+// Exported so the debug tuning panel (tuning-panel.js) can mutate targets live.
+// applyMapping reads this object every frame, so in-place edits take effect
+// immediately without reconstructing anything.
+export const VOLUME_MAP = {
   flowing: {
     harmonic_bed: -6,
     texture: -8,

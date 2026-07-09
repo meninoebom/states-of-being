@@ -9,6 +9,7 @@ import { LoopGrid } from './loop-grid.js';
 import { MovementDetector, computeRelational } from './movement.js';
 import { ReadingsEngine, RELATIONAL_READINGS } from './readings.js';
 import { applyMapping, QUIET_VOLUMES } from './mapping.js';
+import { initTuningPanel } from './tuning-panel.js';
 import { ArcEngine } from './arc.js';
 import { CATEGORIES } from './constants.js';
 
@@ -49,6 +50,7 @@ const loopGridEl = document.getElementById('loop-grid');
 const cameraError = document.getElementById('camera-error');
 const cameraRetryBtn = document.getElementById('camera-retry');
 const debugPanel = document.getElementById('debug-panel');
+const tuningPanel = document.getElementById('tuning-panel');
 let playing = false;
 let songLoaded = false;
 // Guided flow defaults to Arc ('Journey'); debug preserves the old Manual default.
@@ -294,6 +296,7 @@ async function ensureWebcam() {
     // panel is developer-only.
     if (skeletonCanvas) skeletonCanvas.style.display = 'block';
     if (DEBUG && debugPanel) debugPanel.style.display = 'block';
+    if (DEBUG && tuningPanel) tuningPanel.style.display = 'block';
     setStatus('Webcam active');
     detectLoop();
   } catch (err) {
@@ -310,6 +313,7 @@ function stopWebcam() {
   }
   if (skeletonCanvas) skeletonCanvas.style.display = 'none';
   if (debugPanel) debugPanel.style.display = 'none';
+  if (tuningPanel) tuningPanel.style.display = 'none';
 }
 
 function detectLoop() {
@@ -589,6 +593,9 @@ if (DEBUG) {
   document.body.classList.add('debug');
   if (modeToggle) modeToggle.style.display = 'none';
   if (modeSelect) { modeSelect.style.display = ''; modeSelect.value = mode; }
+  // Build the live tuning sliders once; visibility follows the webcam lifecycle
+  // (shown in ensureWebcam, hidden in stopWebcam), same as the debug panel.
+  initTuningPanel(tuningPanel);
 } else {
   document.body.classList.add('guided');
   if (modeSelect) modeSelect.style.display = 'none';
