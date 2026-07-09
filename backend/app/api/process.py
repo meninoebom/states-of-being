@@ -10,11 +10,16 @@ from fastapi import APIRouter, HTTPException, Request, UploadFile
 
 from app.config import settings
 from app.limiter import limiter
+from app.spend_cap import DailySpendTracker
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 SUPPORTED_EXTENSIONS = {".mp3", ".wav", ".m4a", ".flac", ".ogg"}
+
+# Global daily Replicate spend cap, shared across all requests to this process.
+# In-memory and single-instance only — see app/spend_cap.py for the limitation.
+spend_tracker = DailySpendTracker(cap_usd=settings.DAILY_SPEND_CAP_USD)
 
 
 @router.post("/process")
@@ -34,6 +39,18 @@ async def process_song(request: Request, file: UploadFile):
     max_bytes = settings.MAX_UPLOAD_MB * 1024 * 1024
     if len(contents) > max_bytes:
         raise HTTPException(413, f"File exceeds {settings.MAX_UPLOAD_MB}MB limit")
+
+    # Global daily spend cap: reserve this request's estimated Replicate cost
+    # BEFORE doing any paid work. If the day's budget is exhausted, reject now.
+    # Note: budget is reserved up front, so a request that later fails still
+    # counts against the cap. This is deliberate — we err toward protecting the
+    # bill rather than risking an unbounded retry loop.
+    if not spend_tracker.try_spend(settings.COST_PER_REQUEST_USD):
+        logger.warning("Daily spend cap reached; rejecting request")
+        raise HTTPException(
+            503,
+            "Daily processing limit reached. Please try again tomorrow (resets at 00:00 UTC).",
+        )
 
     from app.main import TEMP_DIR
 
