@@ -90,6 +90,10 @@ function syncModeToggle() {
 }
 
 // --- Song selection ---
+// Surface picker-level fetch failures (bad catalog response, network error) on
+// the shared status line.
+picker.onError = (msg) => setStatus(msg);
+
 picker.onSongSelected = async (metadata) => {
   if (playing) {
     engine.stop();
@@ -110,7 +114,9 @@ picker.onSongSelected = async (metadata) => {
   } catch (err) {
     console.error('Failed to load song:', err);
     setStatus(`Failed to load ${metadata.name}: ${err.message}`);
-    return;
+    // Re-throw so the picker deselects the card. songLoaded stays false and the
+    // Start button stays disabled, so we never present a fake "ready" state.
+    throw err;
   }
 
   grid.render(metadata);
