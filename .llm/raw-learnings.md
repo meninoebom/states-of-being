@@ -1,5 +1,39 @@
 # Raw Learnings (session capture — promote via /docs-gardener)
 
+## 2026-07-09 — #18 gapless loops at the source
+
+### Audio-timing: quantize loop LENGTH to the nominal grid, not the downbeat span
+**Problem:** Instrument loops had audible seams. Cuts were snapped to downbeats then
+"fine-tuned" to nearby silence, which shifted them off the beat grid (loops like
+4.043 bars). The frontend hid this by rounding `loopEnd` to whole bars.
+**Solution:** Cut on downbeats only, then trim/zero-pad each loop to an exact multiple
+of the *nominal* bar (`60/bpm * time_signature`). Measure exactness against the nominal
+grid, because the Transport plays at the nominal tempo and real downbeats drift from it.
+A real datum: `highest/bass_intro_1` had `bars: 9` but `duration_sec: 20.03` while
+9 nominal bars = 22.27s — the old library was badly grid-misaligned.
+**Gotcha:** store `duration_sec` at sample-fine precision (6 dp, not 3). Rounding to 3
+dp is ~22 samples of error at 44.1k, and because different loops round differently the
+layers drift apart audibly over a multi-minute session.
+**Code ref:** `backend/app/services/loop_chopper.py` (non-vocal branch of `chop_stem`).
+
+### MP3 gapless: verify browser decode empirically, don't assume
+**Finding:** our pydub/LAME 192k export writes the Xing/LAME gapless header, and Chrome's
+`decodeAudioData` honors it — a known 2s tone round-trips sample-identical (0 leading
+silence, 0 padding). libsndfile agrees. So the "MP3 encoder delay breaks gapless" worry
+was refuted for our pipeline; kept MP3. The ~45ms lead/trail seen in a *real* library MP3
+was content silence from the OLD snap-to-silence chopper, not codec delay.
+**Method (reusable):** `scripts/verify_mp3_gapless.py` + browser `decodeAudioData` probe.
+Use a signal that is non-zero from sample 0 so any encoder-added lead is unambiguous.
+
+### End of Issue Retrospective
+**What went well:** TDD on the chopper math caught the trim-vs-pad direction early; the
+controlled-tone browser test cleanly separated "codec delay" from "content silence".
+**What took longer:** deciding duration_sec precision (drift analysis) and reasoning
+about loopEnd vs buffer.duration for WAV (live) vs padded MP3 (library) paths.
+**Would do differently / remaining:** the 4 curated songs still need a one-time re-ingest
+against the deployed new backend (needs source audio) + by-ear check; can't be done from
+an agent lacking the source files. Consider committing source stems or a re-ingest fixture.
+
 ## 2026-07-08 — #14 guided vs debug /app surface
 
 - The `?debug=1` gate is one module-level `DEBUG` const in `frontend/js/app.js`; it drives the default `mode` (`arc` guided / `manual` debug) and, at init, adds a `body.guided` or `body.debug` class and toggles visibility of `#mode-select`, `#loop-grid`, `#mode-toggle`. Later issues should branch on `DEBUG` / those body classes rather than re-parsing the query string.
