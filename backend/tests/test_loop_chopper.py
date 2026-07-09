@@ -245,3 +245,21 @@ def test_chop_stem_vocals_uses_phrase_extraction(tmp_path):
     for l in loops:
         assert l.file.startswith("vocals_phrase_")
         assert (tmp_path / "out" / l.file).exists()
+
+
+def test_chop_stem_vocals_drops_below_threshold_phrase(tmp_path):
+    # A VAD-detectable phrase whose loudness sits just under the vocals energy
+    # threshold (0.005) must be dropped inside _chop_vocal_phrases, proving the
+    # energy filter fires on the real vocal path, not just the primitive.
+    quiet_amp = 0.004  # sine RMS = 0.004/sqrt(2) ~ 0.0028 < 0.005
+    p = _tone(int(1.4 * SR), amp=quiet_amp)
+    gap = _silence(int(0.6 * SR))
+    y = np.concatenate([gap, p, gap])
+    wav = tmp_path / "vocals.wav"
+    _write_wav(wav, y)
+
+    sections = [{"start": 0.0, "end": 3.0, "label": "verse"}]
+    downbeats = [float(i) * 0.5 for i in range(0, 7)]
+
+    loops = lc.chop_stem(str(wav), sections, str(tmp_path / "out"), "vocals", downbeats)
+    assert loops == []

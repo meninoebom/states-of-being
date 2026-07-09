@@ -38,7 +38,7 @@ def test_get_known_song_returns_metadata(client):
     # sweet-thang is one of the committed curated songs.
     r = client.get("/api/library/sweet-thang")
     assert r.status_code == 200
-    assert r.json().get("slug") == "sweet-thang" or "name" in r.json()
+    assert r.json()["name"] == "Sweet Thang"
 
 
 def test_get_unknown_song_404(client):
@@ -53,12 +53,31 @@ def test_invalid_slug_rejected_400(client):
 
 
 def test_path_traversal_slug_rejected(client):
-    # Encoded traversal must not escape the library dir; it fails slug validation
-    # (400) or is simply not found (404) — never a 200 leaking a file.
+    # The %2f sequences decode to slashes, so the request no longer matches the
+    # single-segment `/library/{slug}` route and 404s before any file read. The
+    # security property under test is "never a 200 that leaks a file"; the
+    # deterministic 400 regex-rejection path is covered by the uppercase test.
     r = client.get("/api/library/..%2f..%2fetc%2fpasswd")
-    assert r.status_code in (400, 404)
+    assert r.status_code == 404
 
 
 def test_clips_missing_file_404(client):
     r = client.get("/clips/nope/missing.wav")
     assert r.status_code == 404
+
+
+def test_malformed_catalog_fails_loud_500(client, monkeypatch, tmp_path):
+    # A catalog entry missing its required `license` is a server-side data error:
+    # list_songs must fail loud (500), not serve invalid data. Drives the real
+    # `except CatalogValidationError` branch end to end.
+    import json as _json
+
+    from app.config import settings
+
+    (tmp_path / "catalog.json").write_text(
+        _json.dumps([{"slug": "bad", "name": "Bad", "artist": "X", "duration": 10.0}])
+    )
+    monkeypatch.setattr(settings, "LIBRARY_DIR", str(tmp_path))
+
+    r = client.get("/api/library")
+    assert r.status_code == 500
