@@ -1,10 +1,16 @@
 """States of Being — Song Blender API."""
 
+import logging
 import os
 import tempfile
 import threading
 import time
 from pathlib import Path
+
+# Ensure our structured observability lines (and other app logs) reach stdout,
+# which Railway captures. uvicorn configures its own loggers but not the root,
+# so without this our INFO/WARNING records could be dropped.
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -58,6 +64,10 @@ app.include_router(process_router, prefix="/api")
 # Import and include library router after app creation
 from app.api.library import router as library_router
 app.include_router(library_router, prefix="/api")
+
+# Client-side observability: error reporting + usage counters (see app/api/telemetry.py)
+from app.api.telemetry import router as telemetry_router
+app.include_router(telemetry_router, prefix="/api")
 
 
 @app.get("/health")

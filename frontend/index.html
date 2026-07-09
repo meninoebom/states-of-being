@@ -108,6 +108,8 @@
   <div id="tuning-panel" style="display:none"></div>
 
   <script src="https://unpkg.com/tone@14.7.77/build/Tone.js"></script>
+  <!-- Error reporting first: installs window.onerror handlers before app code runs -->
+  <script type="module" src="js/error-reporter.js"></script>
   <script type="module" src="js/app.js"></script>
 </body>
 </html>

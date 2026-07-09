@@ -3,11 +3,13 @@
 import asyncio
 import logging
 import shutil
+import time
 import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request, UploadFile
 
+from app import telemetry
 from app.config import settings
 from app.exceptions import UpstreamServiceError
 from app.limiter import limiter
@@ -49,6 +51,11 @@ async def process_song(request: Request, file: UploadFile):
     job_id = uuid.uuid4().hex[:8]
     job_dir = Path(TEMP_DIR) / job_id
 
+    # `stage` tracks how far the pipeline got, so a failure log pinpoints where it
+    # died. `started` measures wall-clock duration for the same log line.
+    stage = "validate"
+    started = time.monotonic()
+
     try:
         # --- Validate cheaply, BEFORE spending on Replicate ---
         ext = validate_extension(file.filename, SUPPORTED_EXTENSIONS)
@@ -65,6 +72,7 @@ async def process_song(request: Request, file: UploadFile):
         # --- Reserve the daily Replicate budget only once input is known-good ---
         # A rejected reservation still counts nothing against the cap; a reserved
         # request that later fails does count. We err toward protecting the bill.
+        stage = "spend_reserve"
         if not spend_tracker.try_spend(settings.COST_PER_REQUEST_USD):
             logger.warning("Daily spend cap reached; rejecting request")
             raise HTTPException(
@@ -79,7 +87,9 @@ async def process_song(request: Request, file: UploadFile):
 
         # 1. Run structure analysis first, then stem separation
         # (Sequential to avoid Replicate rate limits with low credit)
+        stage = "structure_analysis"
         structure = await analyze_structure(str(input_path))
+        stage = "stem_separation"
         stems = await separate_stems(str(input_path), str(job_dir))
 
         # Extract data from structure analysis
@@ -112,6 +122,7 @@ async def process_song(request: Request, file: UploadFile):
                 time_signature = int(np.median(beats_per_bar))
 
         # 2. Chop each stem using song sections
+        stage = "chop"
         loops_by_stem: dict[str, list] = {}
         for stem_name, stem_path in stems.items():
             loops = chop_stem(
@@ -124,6 +135,7 @@ async def process_song(request: Request, file: UploadFile):
             loops_by_stem[stem_name] = loops
 
         # 3. Categorize and auto-select (2 per category per section)
+        stage = "categorize"
         categorized = categorize_loops(loops_by_stem)
         all_tracks = auto_select(categorized)
 
@@ -150,19 +162,36 @@ async def process_song(request: Request, file: UploadFile):
 
     except UploadValidationError as e:
         # Bad user input, rejected before (or without) any Replicate spend.
+        telemetry.log_pipeline_failure(
+            job_id=job_id, stage=stage, http_status=e.status_code, error=e,
+            duration_sec=time.monotonic() - started,
+        )
         shutil.rmtree(job_dir, ignore_errors=True)
         raise HTTPException(e.status_code, e.detail) from e
-    except UpstreamServiceError:
+    except UpstreamServiceError as e:
         # Replicate timed out or errored — distinct from a bug on our side.
-        logger.warning("Upstream (Replicate) failure for job %s", job_id, exc_info=True)
+        telemetry.log_pipeline_failure(
+            job_id=job_id, stage=stage, http_status=502, error=e,
+            duration_sec=time.monotonic() - started,
+        )
         shutil.rmtree(job_dir, ignore_errors=True)
         raise HTTPException(
             502, "Audio processing service is unavailable or timed out. Please try again later."
         )
-    except HTTPException:
+    except HTTPException as e:
+        # Already-mapped statuses (e.g. the 503 spend cap). Log with the real status.
+        telemetry.log_pipeline_failure(
+            job_id=job_id, stage=stage, http_status=e.status_code, error=e,
+            duration_sec=time.monotonic() - started,
+        )
         shutil.rmtree(job_dir, ignore_errors=True)
         raise
-    except Exception:
+    except Exception as e:
+        # Unexpected bug on our side. Keep the full traceback in logs too.
         logger.exception("Processing failed for job %s", job_id)
+        telemetry.log_pipeline_failure(
+            job_id=job_id, stage=stage, http_status=500, error=e,
+            duration_sec=time.monotonic() - started,
+        )
         shutil.rmtree(job_dir, ignore_errors=True)
         raise HTTPException(500, "Processing failed — please try again or use a different file")
