@@ -119,7 +119,7 @@ export class AudioEngine {
         const { player, track } = entries[i];
         if (!player.loaded || track.mode !== 'loop') continue;
         try {
-          this._quantizeLoop(player);
+          this._setLoopPoints(player, track);
           if (i === activeIdx) {
             player.sync().start(0);
           }
@@ -137,12 +137,23 @@ export class AudioEngine {
     return (60 / bpm) * timeSig;
   }
 
-  _quantizeLoop(player) {
-    const rawDur = player.buffer.duration;
-    const barCount = Math.round(rawDur / this._barDur);
-    if (barCount > 0) {
-      player.loopEnd = barCount * this._barDur;
+  /**
+   * Drive the loop end from the loop's source duration (issue #18).
+   *
+   * `duration_sec` is the exact nominal-bar length the backend cut the loop to,
+   * so it keeps loops locked to the Transport bar grid. It also fixes gapless
+   * playback for lossy library formats: MP3/codec frame padding makes the
+   * DECODED buffer longer than the real audio, so setting loopEnd from the
+   * (larger) buffer duration — even rounded to whole bars — can push the loop
+   * point past the real content and open a gap. Using the source duration stops
+   * the loop before any padding.
+   */
+  _setLoopPoints(player, track) {
+    const dur = track?.duration_sec;
+    if (dur && dur > 0) {
+      player.loopEnd = dur;
     }
+    // No metadata duration: fall back to Tone's default (loop the whole buffer).
   }
 
   getBarDuration() {
@@ -215,7 +226,7 @@ export class AudioEngine {
       // Fade in new
       const { player, track } = entries[index];
       if (player.loaded && track.mode === 'loop') {
-        this._quantizeLoop(player);
+        this._setLoopPoints(player, track);
         player.sync().start(0);
         player.volume.value = -Infinity;
         player.volume.rampTo(track.volume || -12, barDur, time);
