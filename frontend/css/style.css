@@ -449,3 +449,202 @@ body.mirror-active main {
 .tune-copy:hover {
   background: #2a2a4e;
 }
+
+/* ==========================================================================
+   Intro / first-run landing
+   A calm, full-screen welcome shown over the app until the visitor presses
+   Begin. Explains what this is, what it needs, and what to do.
+   ========================================================================== */
+
+#intro {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 24px;
+  overflow-y: auto;
+  background:
+    radial-gradient(120% 80% at 50% -10%, #16233f 0%, rgba(10, 10, 15, 0) 60%),
+    radial-gradient(90% 70% at 50% 110%, #1a1330 0%, rgba(10, 10, 15, 0) 55%),
+    #0a0a0f;
+  /* Slow breathing motion: a gentle drift so the field feels alive, not busy. */
+  animation: introBreathe 14s ease-in-out infinite alternate;
+}
+
+@keyframes introBreathe {
+  from { background-position: 0 0, 0 0, 0 0; }
+  to   { background-position: 0 -18px, 0 18px, 0 0; }
+}
+
+/* Hidden once the visitor begins. */
+body.begun #intro { display: none; }
+
+.intro-inner {
+  width: 100%;
+  max-width: 560px;
+  text-align: center;
+  animation: introRise 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes introRise {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.intro-mark {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: #8af;
+  opacity: 0.85;
+  margin-bottom: 24px;
+}
+
+.intro-headline {
+  font-size: clamp(28px, 7vw, 44px);
+  font-weight: 300;
+  line-height: 1.15;
+  letter-spacing: -0.5px;
+  color: #f2f4fa;
+  margin-bottom: 20px;
+}
+
+.intro-lede {
+  font-size: clamp(15px, 4vw, 18px);
+  line-height: 1.6;
+  color: #a6adc0;
+  max-width: 46ch;
+  margin: 0 auto 36px;
+}
+
+.intro-steps {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  text-align: left;
+  margin: 0 auto 36px;
+  max-width: 400px;
+}
+
+.intro-steps li {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: rgba(18, 18, 31, 0.6);
+  border: 1px solid #1e1e34;
+  border-radius: 12px;
+  padding: 14px 18px;
+}
+
+.step-num {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(136, 170, 255, 0.14);
+  color: #8af;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.step-body { display: flex; flex-direction: column; gap: 2px; }
+.step-body strong { font-size: 15px; font-weight: 600; color: #dfe3ee; }
+.step-body span { font-size: 13px; color: #7f869a; }
+
+#intro-begin {
+  background: #8af;
+  color: #0a0a0f;
+  border: none;
+  padding: 14px 48px;
+  border-radius: 999px;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+  box-shadow: 0 8px 30px rgba(136, 170, 255, 0.25);
+}
+
+#intro-begin:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 36px rgba(136, 170, 255, 0.38);
+}
+
+#intro-begin:focus-visible {
+  outline: 2px solid #cfe0ff;
+  outline-offset: 3px;
+}
+
+.intro-privacy {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #6b7185;
+  max-width: 42ch;
+  margin: 24px auto 0;
+}
+
+.intro-unsupported {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #f0c0c0;
+  max-width: 42ch;
+  margin: 20px auto 0;
+  padding: 12px 16px;
+  background: #1a1216;
+  border: 1px solid #5e2a2a;
+  border-radius: 10px;
+}
+
+/* When the browser cannot use the camera, the note replaces the CTA. */
+body.no-camera #intro-begin { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  #intro { animation: none; }
+  .intro-inner { animation: none; }
+  #intro-begin { transition: none; }
+}
+
+/* ==========================================================================
+   Responsive: the grid layout is a desktop dev tool. On phones the guided
+   flow (song list, controls, mirror stage) is what matters, so it stacks.
+   ========================================================================== */
+
+@media (max-width: 720px) {
+  header { padding: 18px 20px; }
+  header h1 { font-size: 20px; letter-spacing: 1.5px; }
+
+  #controls {
+    padding: 14px 20px;
+    flex-wrap: wrap;
+  }
+
+  #play-btn { flex: 1 1 auto; }
+
+  main {
+    flex-direction: column;
+    padding: 16px 20px;
+    gap: 16px;
+  }
+
+  /* Song list spans the full width and reads as a stack of cards. */
+  #song-picker,
+  body.guided #song-picker {
+    width: 100%;
+  }
+
+  #camera-error { margin: 0 20px 16px; max-width: none; }
+
+  /* Give the self-view as much of the phone screen as possible. */
+  #mirror-stage { max-height: 68vh; border-radius: 10px; }
+
+  /* Move fixed dev overlays out of the way so they never cover the stage. */
+  #phase-indicator { top: 10px; right: 10px; padding: 8px 14px; font-size: 12px; }
+  #debug-panel { max-width: 60vw; font-size: 11px; }
+}

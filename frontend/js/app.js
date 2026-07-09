@@ -696,4 +696,31 @@ if (DEBUG) {
   syncModeToggle();
 }
 
+// --- Intro / first-run landing ---
+// A calm welcome that explains the experience and primes the camera prompt
+// before it ever fires. Pressing Begin reveals the app underneath. We remember
+// the choice for the session so a reload does not force the intro every time.
+const introBegin = document.getElementById('intro-begin');
+const introUnsupported = document.querySelector('.intro-unsupported');
+
+// The guided flow depends on the camera. If the browser cannot provide one,
+// say so up front rather than letting Start fail with a raw error later.
+const cameraSupported = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+if (!cameraSupported) {
+  document.body.classList.add('no-camera');
+  if (introUnsupported) introUnsupported.hidden = false;
+}
+
+function beginExperience() {
+  document.body.classList.add('begun');
+  try { sessionStorage.setItem('sb-begun', '1'); } catch { /* private mode: ignore */ }
+}
+
+if (introBegin) introBegin.addEventListener('click', beginExperience);
+
+// Skip the intro if the visitor already began earlier this session.
+let alreadyBegun = false;
+try { alreadyBegun = sessionStorage.getItem('sb-begun') === '1'; } catch { /* ignore */ }
+if (alreadyBegun) document.body.classList.add('begun');
+
 picker.load();

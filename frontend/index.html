@@ -7,6 +7,56 @@
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+  <!-- First-run landing: what this is, what it needs, what to do. Shown over
+       the app until the visitor presses Begin (see app.js intro handling). -->
+  <div id="intro">
+    <div class="intro-inner">
+      <div class="intro-mark">Song Blender</div>
+      <h1 class="intro-headline">Move, and the music moves with you.</h1>
+      <p class="intro-lede">
+        Your camera watches how you move, and a song bends to match. It rises as
+        you reach, softens as you settle, and drifts as you go still. Think of it
+        as a duet between your body and the sound.
+      </p>
+
+      <ol class="intro-steps">
+        <li>
+          <span class="step-num">1</span>
+          <div class="step-body">
+            <strong>Allow the camera</strong>
+            <span>It is how the music sees you.</span>
+          </div>
+        </li>
+        <li>
+          <span class="step-num">2</span>
+          <div class="step-body">
+            <strong>Step back</strong>
+            <span>Give the camera room to see your whole body.</span>
+          </div>
+        </li>
+        <li>
+          <span class="step-num">3</span>
+          <div class="step-body">
+            <strong>Move</strong>
+            <span>Reach, sway, or hold still, and listen for the change.</span>
+          </div>
+        </li>
+      </ol>
+
+      <button id="intro-begin">Begin</button>
+
+      <p class="intro-privacy">
+        Everything runs in your browser. Pose detection happens on your own
+        device, and your camera feed is never uploaded, recorded, or sent
+        anywhere.
+      </p>
+      <p class="intro-unsupported" hidden>
+        This experience needs a browser that can use your camera, like Chrome,
+        Edge, or Safari. It works best on a laptop or desktop with room to move.
+      </p>
+    </div>
+  </div>
+
   <header>
     <h1>SONG BLENDER</h1>
     <div id="status">Select a song to begin</div>
