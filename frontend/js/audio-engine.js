@@ -66,19 +66,35 @@ export class AudioEngine {
               console.warn(`Failed to load ${track.file}:`, err);
               loadedCount++;
               if (this.onLoadProgress) this.onLoadProgress(loadedCount, tracks.length);
-              resolve(null);
+              resolve({ error: true });
             },
           }).connect(this.gains[cat]);
         } catch (err) {
           console.warn(`Error creating player for ${track.file}:`, err);
-          resolve(null);
+          resolve({ error: true });
         }
       });
     });
 
     const results = await Promise.all(loadPromises);
+    let loadedOk = 0;
+    let failed = 0;
     for (const r of results) {
-      if (r) this.players[r.cat].push({ player: r.player, track: r.track });
+      if (!r) continue;                       // skipped: unknown category
+      if (r.error) { failed++; continue; }
+      this.players[r.cat].push({ player: r.player, track: r.track });
+      loadedOk++;
+    }
+
+    // Reject dead loads. If every selected loop failed (dead/missing audio
+    // files, decode failure), this song is unplayable. Fail loudly instead of
+    // pretending success with a silent engine — see issue #16.
+    if (tracks.length > 0 && loadedOk === 0) {
+      this.dispose();
+      throw new Error(`Could not load any audio for "${metadata.name || 'this song'}".`);
+    }
+    if (failed > 0) {
+      console.warn(`AudioEngine: ${failed}/${tracks.length} loops failed to load.`);
     }
 
     // Default: first loop in each category is active
