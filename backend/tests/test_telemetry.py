@@ -72,9 +72,21 @@ def test_log_pipeline_failure_emits_structured_line(caplog):
     assert "duration_sec=12.35" in line  # rounded to 2 places
 
 
-def test_log_pipeline_failure_bumps_counter():
+def test_log_pipeline_failure_bumps_counter_on_5xx():
     telemetry.log_pipeline_failure(
         job_id="j", stage="chop", http_status=500,
         error=RuntimeError("x"), duration_sec=1.0,
     )
     assert telemetry.snapshot()["pipeline_failures"] == 1
+
+
+def test_log_pipeline_failure_does_not_count_4xx_user_errors(caplog):
+    # A 4xx is the client's bad input, not a pipeline failure. It still logs a
+    # line (for debugging) but must not inflate the failure counter.
+    with caplog.at_level(logging.WARNING, logger="observability"):
+        telemetry.log_pipeline_failure(
+            job_id="j", stage="validate", http_status=413,
+            error=ValueError("too big"), duration_sec=0.1,
+        )
+    assert "event=pipeline_failure" in caplog.records[-1].message
+    assert "pipeline_failures" not in telemetry.snapshot()

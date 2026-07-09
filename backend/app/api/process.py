@@ -170,6 +170,9 @@ async def process_song(request: Request, file: UploadFile):
         raise HTTPException(e.status_code, e.detail) from e
     except UpstreamServiceError as e:
         # Replicate timed out or errored — distinct from a bug on our side.
+        # Keep the traceback in logs too: the wrapped exception's cause pinpoints
+        # which upstream call died, which the structured line alone does not.
+        logger.warning("Upstream (Replicate) failure for job %s", job_id, exc_info=True)
         telemetry.log_pipeline_failure(
             job_id=job_id, stage=stage, http_status=502, error=e,
             duration_sec=time.monotonic() - started,

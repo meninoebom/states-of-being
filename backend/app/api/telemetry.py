@@ -17,8 +17,16 @@ from pydantic import BaseModel, Field
 
 from app import telemetry
 from app.client_ip import extract_client_ip
+from app.limiter import limiter
 
 router = APIRouter()
+
+# These routes are public and unauthenticated. The frontend self-caps error
+# reports, but that is client-side only; a per-IP limit stops a hostile client
+# from flooding Railway logs (and our costs) with unbounded POSTs. Generous
+# enough that legitimate use (one session_started + a few plays/errors) never
+# trips it.
+_TELEMETRY_LIMIT = "60/minute"
 
 # Only these events increment a counter. An allowlist keeps a noisy or hostile
 # client from inflating arbitrary counter names in memory.
@@ -51,7 +59,8 @@ def _client_ip(request: Request) -> str:
 
 
 @router.post("/client-error")
-async def report_client_error(err: ClientError, request: Request) -> dict:
+@limiter.limit(_TELEMETRY_LIMIT)
+async def report_client_error(request: Request, err: ClientError) -> dict:
     """Log an unhandled frontend error so a human can see it in Railway logs."""
     telemetry.increment("client_errors")
     line = telemetry.format_fields(
@@ -72,7 +81,8 @@ async def report_client_error(err: ClientError, request: Request) -> dict:
 
 
 @router.post("/client-event")
-async def report_client_event(evt: ClientEvent) -> dict:
+@limiter.limit(_TELEMETRY_LIMIT)
+async def report_client_event(request: Request, evt: ClientEvent) -> dict:
     """Increment a usage counter for an allowlisted event."""
     if evt.event not in ALLOWED_EVENTS:
         raise HTTPException(422, f"Unknown event: {evt.event}")

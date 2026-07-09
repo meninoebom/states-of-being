@@ -79,7 +79,10 @@ def log_pipeline_failure(
     minimum needed to debug from Railway logs: which job, which pipeline stage,
     what kind of error, how long it ran, and the HTTP status the client saw.
     """
-    increment("pipeline_failures")
+    # Count only genuine server-side failures (5xx). 4xx are the client's bad
+    # input, not a pipeline failure, and would otherwise inflate this signal.
+    if http_status >= 500:
+        increment("pipeline_failures")
     line = format_fields(
         {
             "event": "pipeline_failure",
