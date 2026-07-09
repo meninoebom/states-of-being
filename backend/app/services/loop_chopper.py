@@ -301,6 +301,14 @@ def chop_stem(
 
     # Non-vocal stems: one loop per section, cut on downbeats and quantized to
     # the nominal bar grid (issue #18).
+    # Guard the tempo before dividing: allin1 can report bpm 0/None and the
+    # librosa fallback can return 0 on degenerate audio, while time_signature is
+    # a median that is 0 when no beats fall between downbeats. Any of those would
+    # otherwise crash the chop AFTER we've already paid for Demucs + allin1.
+    if not bpm or bpm <= 0:
+        bpm = 120.0
+    if not time_signature or time_signature <= 0:
+        time_signature = 4
     nominal_bar_dur = (60.0 / bpm) * time_signature  # seconds per bar on the grid
     loops: list[Loop] = []
     loop_idx = 0
@@ -355,10 +363,12 @@ def chop_stem(
         write_data = segment.T if is_stereo else segment
         sf.write(str(output_path / filename), write_data, sr)
 
-        # duration_sec is the exact nominal-bar length. The frontend drives
-        # player.loopEnd from it (kept at sample-fine precision to avoid drift
-        # between layers over a long session).
-        duration_sec = bars * nominal_bar_dur
+        # duration_sec is the EXACT written length (target_samples / sr), which
+        # is a whole number of nominal bars to the sample. The frontend sets
+        # player.loopEnd = duration_sec, so the loop wraps exactly at the buffer
+        # end — where the 5ms fade-out reaches zero — for a gapless seam. Kept at
+        # sample-fine precision (6 dp) so layers don't drift over a long session.
+        duration_sec = target_samples / sr
         loops.append(Loop(
             file=filename,
             start_sec=round(sec_start, 3),

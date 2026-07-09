@@ -305,6 +305,29 @@ def test_nonvocal_loop_is_exact_nominal_bar_multiple_when_downbeats_drift(tmp_pa
     out, out_sr = _read_wav_mono(tmp_path / "out" / loop.file)
     expected_samples = round(4 * nominal_bar * out_sr)
     assert len(out) == expected_samples
+    # duration_sec is the exact written file length, so the frontend's
+    # loopEnd = duration_sec wraps precisely at the buffer end (fade-out zero).
+    assert loop.duration_sec == pytest.approx(len(out) / out_sr, abs=1e-6)
+
+
+@pytest.mark.parametrize("bpm, ts", [(0.0, 4), (None, 4), (120.0, 0)])
+def test_chop_stem_survives_degenerate_bpm_or_time_signature(tmp_path, bpm, ts):
+    # allin1 can report bpm 0/None and time_signature can be 0 (median of no
+    # beats). Those must NOT crash the chop with a div-by-zero AFTER Replicate
+    # has already been billed — the guard falls back to 120bpm / 4.
+    y = _tone(int(8.0 * SR), amp=0.4)
+    wav = tmp_path / "drums.wav"
+    _write_wav(wav, y)
+    sections = [{"start": 0.0, "end": 8.0, "label": "verse"}]
+    downbeats = [0.0, 2.0, 4.0, 6.0, 8.0]
+
+    loops = lc.chop_stem(
+        str(wav), sections, str(tmp_path / "out"), "drums", downbeats,
+        bpm=bpm, time_signature=ts,
+    )
+    # Falls back to 120bpm/4 -> 2.0s nominal bar; the 8s loud section survives.
+    assert len(loops) == 1
+    assert (tmp_path / "out" / loops[0].file).exists()
 
 
 def test_nonvocal_loop_pads_short_section_up_to_bar_multiple(tmp_path):

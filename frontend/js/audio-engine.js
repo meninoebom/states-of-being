@@ -140,13 +140,19 @@ export class AudioEngine {
   /**
    * Drive the loop end from the loop's source duration (issue #18).
    *
-   * `duration_sec` is the exact nominal-bar length the backend cut the loop to,
-   * so it keeps loops locked to the Transport bar grid. It also fixes gapless
+   * `duration_sec` is the exact length the backend wrote the loop file to. For
+   * non-vocal loops that is a whole number of nominal bars (to the sample), so
+   * the loop stays locked to the Transport bar grid. It also fixes gapless
    * playback for lossy library formats: MP3/codec frame padding makes the
    * DECODED buffer longer than the real audio, so setting loopEnd from the
    * (larger) buffer duration — even rounded to whole bars — can push the loop
    * point past the real content and open a gap. Using the source duration stops
-   * the loop before any padding.
+   * the loop before any padding, at the point where the 5ms fade-out hits zero.
+   *
+   * Vocal phrase loops are intentionally NOT bar-aligned: they loop at their
+   * full phrase length (their `duration_sec`) rather than being snapped to a
+   * bar, which would truncate the phrase. In this generative, non-beat-locked
+   * mix a repeating vocal phrase drifting against the grid reads as texture.
    */
   _setLoopPoints(player, track) {
     const dur = track?.duration_sec;
