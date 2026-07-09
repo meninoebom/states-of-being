@@ -291,10 +291,10 @@ def chop_stem(
 
     energy_threshold = ENERGY_THRESHOLDS.get(stem_name, 0.003)
 
-    y_mono = y_full.mean(axis=0) if is_stereo else y_full
-
-    # For vocals, use phrase extraction instead of section-based chopping
+    # For vocals, use phrase extraction instead of section-based chopping.
+    # (y_mono is only needed here; non-vocal chopping computes per-segment RMS.)
     if stem_name == "vocals":
+        y_mono = y_full.mean(axis=0) if is_stereo else y_full
         return _chop_vocal_phrases(
             y_full, sr, y_mono, sections, downbeats, output_path, energy_threshold
         )
