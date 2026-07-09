@@ -80,20 +80,32 @@ function mirrorActive() {
   return document.body.classList.contains('mirror-active');
 }
 
+// Logical (CSS-pixel) size of the stage. Drawing uses these; the canvas backing
+// store is scaled up by devicePixelRatio for crisp lines on HiDPI screens.
+let stageW = 0, stageH = 0;
+
 /**
- * Match the canvas backing store to the stage's displayed pixel size so the
- * skeleton is crisp and 1:1 with the video. Driven by a ResizeObserver (not the
- * per-frame render loop) to keep layout reads off the hot path.
+ * Match the canvas backing store to the stage's displayed size (times DPR) so
+ * the skeleton stays crisp next to the native-resolution video. Driven by a
+ * ResizeObserver (not the per-frame render loop) to keep layout reads off the
+ * hot path. The context is scaled so drawSkeletons can work in CSS pixels.
  */
 function sizeCanvasToStage() {
-  if (!skeletonCanvas || !mirrorStage) return;
+  if (!skeletonCanvas || !skeletonCtx || !mirrorStage) return;
   const rect = mirrorStage.getBoundingClientRect();
   const w = Math.round(rect.width);
   const h = Math.round(rect.height);
-  if (w > 0 && h > 0 && (skeletonCanvas.width !== w || skeletonCanvas.height !== h)) {
-    skeletonCanvas.width = w;
-    skeletonCanvas.height = h;
+  if (w === 0 || h === 0) return;
+  stageW = w;
+  stageH = h;
+  const dpr = window.devicePixelRatio || 1;
+  const bw = Math.round(w * dpr), bh = Math.round(h * dpr);
+  if (skeletonCanvas.width !== bw || skeletonCanvas.height !== bh) {
+    skeletonCanvas.width = bw;
+    skeletonCanvas.height = bh;
   }
+  // Re-applied every call: setting canvas.width above resets the transform.
+  skeletonCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 
 if (mirrorStage && typeof ResizeObserver !== 'undefined') {
@@ -489,8 +501,8 @@ const JOINT_INDICES = [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28];
 function drawSkeletons(allLandmarks, bodyCount, readingValues) {
   if (!skeletonCtx || !skeletonCanvas || !mirrorActive()) return;
 
-  const W = skeletonCanvas.width;
-  const H = skeletonCanvas.height;
+  const W = stageW;
+  const H = stageH;
   if (W === 0 || H === 0) return; // stage not laid out yet
   skeletonCtx.clearRect(0, 0, W, H);
 
