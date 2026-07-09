@@ -82,6 +82,13 @@ function updatePlayButton() {
 function showCameraError() { if (cameraError) cameraError.style.display = 'block'; }
 function hideCameraError() { if (cameraError) cameraError.style.display = 'none'; }
 
+/** Highlight the guided toggle button matching the current mode. */
+function syncModeToggle() {
+  if (!modeToggle) return;
+  modeToggle.querySelectorAll('button').forEach((b) =>
+    b.classList.toggle('active', b.dataset.mode === mode));
+}
+
 // --- Song selection ---
 picker.onSongSelected = async (metadata) => {
   if (playing) {
@@ -91,6 +98,7 @@ picker.onSongSelected = async (metadata) => {
 
   songLoaded = false;
   updatePlayButton();
+  hideCameraError();
   setStatus(`Loading ${metadata.name}...`);
 
   engine.onLoadProgress = (loaded, total) => {
@@ -206,8 +214,7 @@ if (modeToggle) {
   modeToggle.querySelectorAll('button').forEach((btn) => {
     btn.addEventListener('click', () => {
       setMode(btn.dataset.mode);
-      modeToggle.querySelectorAll('button').forEach((b) =>
-        b.classList.toggle('active', b.dataset.mode === mode));
+      syncModeToggle();
     });
   });
 }
@@ -243,25 +250,29 @@ async function ensureWebcam() {
   try {
     setStatus('Starting webcam...');
 
-    const { PoseLandmarker, FilesetResolver } = await import(
-      'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs'
-    );
+    // Build the landmarker once and reuse it; retries after a camera denial
+    // should not leak a fresh GPU/WASM model each time.
+    if (!poseLandmarker) {
+      const { PoseLandmarker, FilesetResolver } = await import(
+        'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs'
+      );
 
-    const vision = await FilesetResolver.forVisionTasks(
-      'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
-    );
+      const vision = await FilesetResolver.forVisionTasks(
+        'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
+      );
 
-    poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
-      baseOptions: {
-        modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
-        delegate: 'GPU',
-      },
-      runningMode: 'VIDEO',
-      numPoses: 2,
-      minPoseDetectionConfidence: 0.6,
-      minPosePresenceConfidence: 0.6,
-      minTrackingConfidence: 0.5,
-    });
+      poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
+        baseOptions: {
+          modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
+          delegate: 'GPU',
+        },
+        runningMode: 'VIDEO',
+        numPoses: 2,
+        minPoseDetectionConfidence: 0.6,
+        minPosePresenceConfidence: 0.6,
+        minTrackingConfidence: 0.5,
+      });
+    }
 
     video = document.getElementById('webcam-video');
     const stream = await navigator.mediaDevices.getUserMedia({
@@ -576,10 +587,7 @@ if (DEBUG) {
   document.body.classList.add('guided');
   if (modeSelect) modeSelect.style.display = 'none';
   if (loopGridEl) loopGridEl.style.display = 'none';
-  if (modeToggle) {
-    modeToggle.querySelectorAll('button').forEach((b) =>
-      b.classList.toggle('active', b.dataset.mode === mode));
-  }
+  syncModeToggle();
 }
 
 picker.load();
