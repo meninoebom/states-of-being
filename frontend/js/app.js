@@ -12,6 +12,7 @@ import { applyMapping, QUIET_VOLUMES } from './mapping.js';
 import { initTuningPanel } from './tuning-panel.js';
 import { ArcEngine } from './arc.js';
 import { CATEGORIES } from './constants.js';
+import { reportEvent } from './error-reporter.js';
 
 const API_URL = window.location.hostname === 'localhost'
   ? 'http://localhost:8000'
@@ -213,6 +214,7 @@ function startPlayback() {
   playing = true;
   lastBodySeen = performance.now();
   noBodyPromptShown = false;
+  reportEvent('song_played'); // usage counter: a play actually started
 
   if (mode === 'arc') {
     arc = new ArcEngine();
