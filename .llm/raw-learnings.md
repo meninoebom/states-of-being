@@ -17,3 +17,12 @@ This makes alignment correct for ANY box/video aspect, so you can freely bound
 the stage with max-width/max-height. Also DPR-scale the backing store
 (`canvas.width = cssW * devicePixelRatio; ctx.setTransform(dpr,0,0,dpr,0,0)`) or a
 full-size overlay looks soft next to the native-res video.
+
+## X-Forwarded-For: take the RIGHTMOST trusted entry for anti-abuse (2026-07-08, #12)
+Behind a proxy (Railway edge), the real client IP is in X-Forwarded-For, formatted `client, proxy1, proxy2`. For rate limiting / anti-abuse, take the entry `trusted_hops` positions from the RIGHT (default 1 = rightmost), NOT the leftmost. The leftmost is client-controllable and lets an attacker spoof a fresh IP per request to evade per-IP limits. Only entries our own trusted proxy appends are reliable. Clamp the index so a misconfigured hop count (0/negative) can't IndexError on the hot path. See backend/app/client_ip.py.
+
+## Testing the FastAPI backend with TestClient (2026-07-08, #19)
+Two gotchas for `backend/tests/` when a test imports the app:
+1. `app.config.Settings` requires `REPLICATE_API_TOKEN`; CI doesn't set it. A `conftest.py` doing `os.environ.setdefault("REPLICATE_API_TOKEN", "test-token")` (runs at collection import time) unblocks app import without a real token, since tests never make a real Replicate call.
+2. slowapi rate-limits per client IP and the suite reuses one IP, so after 5 posts to a `5/hour` endpoint later tests 429. Set `limiter.enabled = False` in the client fixture. The `Limiter` object exposes `.enabled`.
+Also: `asyncio.wait_for` around `asyncio.to_thread(...)` frees the awaiting request on timeout but CANNOT kill the worker thread; it runs to completion on the shared default executor. Good enough to un-hang the client; watch for pool starvation if many leak.
