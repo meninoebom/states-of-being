@@ -122,6 +122,69 @@ main {
   opacity: 0.85;
 }
 
+/* Mode toggle (guided Journey / Free Play choice) */
+#mode-toggle {
+  display: flex;
+  gap: 4px;
+  background: #12121f;
+  border: 1px solid #1a1a2e;
+  border-radius: 6px;
+  padding: 2px;
+}
+
+#mode-toggle button {
+  background: transparent;
+  color: #888;
+  border: none;
+  padding: 8px 18px;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+#mode-toggle button.active {
+  background: #8af;
+  color: #0a0a0f;
+  font-weight: 600;
+}
+
+/* Camera denial state */
+#camera-error {
+  margin: 0 32px 16px;
+  padding: 16px 20px;
+  background: #1a1216;
+  border: 1px solid #5e2a2a;
+  border-radius: 8px;
+  color: #f0c0c0;
+  max-width: 480px;
+}
+
+#camera-error p {
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+#camera-error button {
+  background: #8af;
+  color: #0a0a0f;
+  border: none;
+  padding: 8px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Guided layout: grid is hidden, so center the song picker */
+body.guided main {
+  justify-content: center;
+}
+
+body.guided #song-picker {
+  width: 320px;
+}
+
 /* Loop Grid */
 #loop-grid {
   flex: 1;
