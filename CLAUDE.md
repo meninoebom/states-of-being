@@ -161,7 +161,7 @@ Auto-detects 0, 1, or 2 bodies. No mode toggle for body count.
 
 ### Gotchas
 
-- **Loop sync drift:** Loop file durations aren't exact bar multiples (e.g., 4.043 bars from section chopping). Fix: `player.loopEnd = Math.round(duration / barDuration) * barDuration` snaps to nearest whole bar.
+- **Loop sync / gapless contract (#18):** Non-vocal loops are cut bar-exact at the source — `chop_stem` cuts on downbeats only and trims/pads each loop to an exact multiple of the nominal bar (`60/bpm * time_signature`), storing that as `duration_sec`. The frontend sets `player.loopEnd = track.duration_sec` (`_setLoopPoints`), NOT `Math.round(buffer.duration / barDuration) * barDuration`. Don't reinstate the rounding: lossy codecs pad the decoded buffer past the true end, so rounding the buffer length can push the loop point into padding and open a gap. Metadata `duration_sec` is the source of truth for the loop point.
 - **Tone.Transport sync:** All players must use `player.sync().start(0)` for shared clock. Individual `.start()` causes drift.
 - **AdaptiveRange normalizer:** Expands instantly on new extremes, contracts slowly (decayRate 0.998). First few seconds of movement will recalibrate — this is expected, not a bug.
 

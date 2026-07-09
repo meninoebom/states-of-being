@@ -5,3 +5,6 @@ __pycache__/
 *.pyc
 .env
 backend/.env
+.venv/
+backend/.venv/
+.gapless-check/
