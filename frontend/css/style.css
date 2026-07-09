@@ -687,7 +687,8 @@ body.no-camera #intro-begin { display: none; }
   body.mirror-active #mirror-stage {
     position: fixed;
     inset: 0;
-    width: 100vw;
+    /* inset: 0 already spans the viewport width; height is driven explicitly so
+       it can track dvh rather than the toolbar-unaware layout viewport. */
     height: 100vh;   /* fallback for browsers without dvh */
     height: 100dvh;
     max-width: none;
