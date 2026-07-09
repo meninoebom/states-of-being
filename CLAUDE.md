@@ -163,6 +163,7 @@ Auto-detects 0, 1, or 2 bodies. No mode toggle for body count.
 
 - **Loop sync / gapless contract (#18):** Non-vocal loops are cut bar-exact at the source — `chop_stem` cuts on downbeats only and trims/pads each loop to an exact multiple of the nominal bar (`60/bpm * time_signature`), storing that as `duration_sec`. The frontend sets `player.loopEnd = track.duration_sec` (`_setLoopPoints`), NOT `Math.round(buffer.duration / barDuration) * barDuration`. Don't reinstate the rounding: lossy codecs pad the decoded buffer past the true end, so rounding the buffer length can push the loop point into padding and open a gap. Metadata `duration_sec` is the source of truth for the loop point.
 - **Tone.Transport sync:** All players must use `player.sync().start(0)` for shared clock. Individual `.start()` causes drift.
+- **Audition is the exception to Transport sync:** Previewing a single loop wants the opposite of the ensemble (no clock, no bar quantization, no sync). `AudioEngine.auditionLoop()` uses a standalone `Tone.Player` on `.toDestination()` that never touches the Transport, so it works whether or not the ensemble is playing. Don't reuse the synced ensemble players for one-shot preview.
 - **AdaptiveRange normalizer:** Expands instantly on new extremes, contracts slowly (decayRate 0.998). First few seconds of movement will recalibrate — this is expected, not a bug.
 
 ## Calm Mirror (index.html)
