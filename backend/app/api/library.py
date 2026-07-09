@@ -26,8 +26,9 @@ def list_songs():
     """Return the curated song catalog.
 
     The catalog is validated on load: an entry missing its required `license`
-    field is a server-side data error, not something we serve to clients. We
-    fail loud (500) rather than ship a song with unstated usage terms.
+    field is a server-side data error, so we fail loud (500) rather than serve
+    it. Validation checks presence only. A placeholder license (pending the
+    human legal review in #11/#22) still passes and is served.
     """
     catalog_path = _library_dir() / "catalog.json"
     try:

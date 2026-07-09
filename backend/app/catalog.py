@@ -6,9 +6,13 @@ categories) it carries provenance metadata added in #21:
 
 - ``artist``   — who made the song (string)
 - ``duration`` — song length in seconds (number)
-- ``license``  — REQUIRED. The usage terms under which the song is included.
-                 This is a legal gate: we refuse to load a catalog whose entries
-                 lack a license rather than silently ship an unlicensed song.
+- ``license``  — REQUIRED to be present. The usage terms under which the song
+                 is included. Validation checks presence only, not correctness:
+                 an entry with a blank/missing license is rejected, but a
+                 placeholder value (e.g. "UNKNOWN - NEEDS REVIEW", written by the
+                 backfill when the real terms are not yet verified) passes and is
+                 served. Verifying the actual license values is a human legal
+                 task tracked in issues #11 / #22.
 - ``cover``    — optional path/URL to a cover image (omitted when none exists)
 
 ``validate_song_entry`` and ``load_catalog`` are kept dependency-free (no
@@ -34,8 +38,9 @@ def validate_song_entry(entry: dict, *, source: str = "") -> None:
     """Raise ``CatalogValidationError`` if a required field is absent or blank.
 
     A value counts as absent when it is missing, ``None``, or (for strings)
-    whitespace-only. ``source`` is an optional label (e.g. ``catalog.json[2]``)
-    woven into the error message to make bad data easy to locate.
+    whitespace-only. This checks presence, not correctness: a placeholder
+    license string passes. ``source`` is an optional label (e.g.
+    ``catalog.json[2]``) woven into the error message to locate bad data.
     """
     missing = []
     for field in REQUIRED_FIELDS:
@@ -54,8 +59,9 @@ def load_catalog(catalog_path: Path | str) -> list[dict]:
     """Read and validate the catalog JSON, returning its entries.
 
     Returns an empty list when the file does not exist (an empty library is a
-    valid state). Raises ``CatalogValidationError`` if any entry fails schema
-    validation, so a license-less song can never be served.
+    valid state). Raises ``CatalogValidationError`` if any entry is missing a
+    required field, so an entry with no license field at all can never be
+    served. (A placeholder license value still passes; see module docstring.)
     """
     path = Path(catalog_path)
     if not path.exists():
