@@ -131,6 +131,8 @@ async def process_song(request: Request, file: UploadFile):
                 output_dir=str(job_dir),
                 stem_name=stem_name,
                 downbeats=downbeats,
+                bpm=bpm,
+                time_signature=time_signature,
             )
             loops_by_stem[stem_name] = loops
 

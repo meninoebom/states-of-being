@@ -87,6 +87,38 @@ def _snap_to_silence(
     return best_sample / sr
 
 
+def _fit_to_length(segment: np.ndarray, target_samples: int) -> np.ndarray:
+    """Trim or zero-pad a segment (last axis = samples) to exactly target_samples.
+
+    Returns a fresh, writable array so the caller can apply fades in place.
+    """
+    cur = segment.shape[-1]
+    if cur > target_samples:
+        return np.array(segment[..., :target_samples])
+    if cur < target_samples:
+        pad = ((0, 0), (0, target_samples - cur)) if segment.ndim == 2 else (0, target_samples - cur)
+        return np.pad(segment, pad, mode="constant")
+    return np.array(segment)
+
+
+def _apply_edge_fades(segment: np.ndarray, sr: int, fade_ms: float = 5.0) -> np.ndarray:
+    """Apply a short symmetric fade-in and fade-out for seamless looping.
+
+    A ~5ms linear ramp at each edge declicks the loop seam — the tail fades to
+    zero and meets the head fading up from zero — without the audible per-cycle
+    volume dip of a long (80ms) tail fade. Mutates and returns `segment`.
+    """
+    n = segment.shape[-1]
+    fade = min(int(sr * fade_ms / 1000.0), n // 2)
+    if fade <= 0:
+        return segment
+    fade_in = np.linspace(0.0, 1.0, fade, dtype=segment.dtype)
+    fade_out = fade_in[::-1]
+    segment[..., :fade] *= fade_in
+    segment[..., -fade:] *= fade_out
+    return segment
+
+
 def _extract_vocal_phrases(
     y_mono: np.ndarray, sr: int
 ) -> list[tuple[float, float]]:
@@ -239,10 +271,14 @@ def chop_stem(
     output_dir: str,
     stem_name: str,
     downbeats: list[float],
+    bpm: float = 120.0,
+    time_signature: int = 4,
 ) -> list[Loop]:
     """Chop a stem into loops.
 
-    For non-vocal stems: one loop per song section.
+    For non-vocal stems: one loop per song section, cut on downbeats and
+    quantized to an exact multiple of the nominal bar (60/bpm * time_signature)
+    so loops are gapless at the source (issue #18).
     For vocals: extract individual phrases via voice activity detection,
     plus keep full-section loops where the section is densely vocal.
     """
@@ -255,15 +291,25 @@ def chop_stem(
 
     energy_threshold = ENERGY_THRESHOLDS.get(stem_name, 0.003)
 
-    y_mono = y_full.mean(axis=0) if is_stereo else y_full
-
-    # For vocals, use phrase extraction instead of section-based chopping
+    # For vocals, use phrase extraction instead of section-based chopping.
+    # (y_mono is only needed here; non-vocal chopping computes per-segment RMS.)
     if stem_name == "vocals":
+        y_mono = y_full.mean(axis=0) if is_stereo else y_full
         return _chop_vocal_phrases(
             y_full, sr, y_mono, sections, downbeats, output_path, energy_threshold
         )
 
-    # Non-vocal stems: one loop per section, with snap-to-silence at boundaries
+    # Non-vocal stems: one loop per section, cut on downbeats and quantized to
+    # the nominal bar grid (issue #18).
+    # Guard the tempo before dividing: allin1 can report bpm 0/None and the
+    # librosa fallback can return 0 on degenerate audio, while time_signature is
+    # a median that is 0 when no beats fall between downbeats. Any of those would
+    # otherwise crash the chop AFTER we've already paid for Demucs + allin1.
+    if not bpm or bpm <= 0:
+        bpm = 120.0
+    if not time_signature or time_signature <= 0:
+        time_signature = 4
+    nominal_bar_dur = (60.0 / bpm) * time_signature  # seconds per bar on the grid
     loops: list[Loop] = []
     loop_idx = 0
     skip_labels = {"start", "end"}
@@ -279,14 +325,17 @@ def chop_stem(
         if sec_end - sec_start < 2.0:
             continue
 
-        # Snap to nearest downbeat, then fine-tune to silence near that beat
+        # Cut on downbeats ONLY. The old code then snapped each cut to nearby
+        # silence, which shifted boundaries off the beat grid and produced loops
+        # like 4.043 bars. The frontend Transport runs at the nominal tempo, so
+        # off-grid loops desync; snap-to-silence is intentionally dropped here.
         sec_start = _snap_to_downbeat(sec_start, downbeats)
-        sec_start = _snap_to_silence(y_mono, sr, sec_start, direction="backward", window_sec=0.15)
         sec_end = _snap_to_downbeat(sec_end, downbeats)
-        sec_end = _snap_to_silence(y_mono, sr, sec_end, direction="forward", window_sec=0.15)
 
-        start_sample = int(sec_start * sr)
-        end_sample = min(int(sec_end * sr), num_samples)
+        start_sample = int(round(sec_start * sr))
+        end_sample = min(int(round(sec_end * sr)), num_samples)
+        if end_sample <= start_sample:
+            continue
         segment = y_full[..., start_sample:end_sample]
 
         mono_seg = segment.mean(axis=0) if is_stereo else segment
@@ -296,30 +345,35 @@ def chop_stem(
         if energy <= energy_threshold:
             continue
 
-        bars = sum(1 for db in downbeats if sec_start <= db < sec_end)
-        bars = max(bars, 1)
+        # Quantize the loop LENGTH to an exact multiple of the nominal bar,
+        # measured against the nominal grid (not the raw downbeat span) because
+        # real songs drift from a constant tempo. Trim if long, zero-pad if short.
+        raw_span = (end_sample - start_sample) / sr
+        bars = max(1, round(raw_span / nominal_bar_dur))
+        target_samples = round(bars * nominal_bar_dur * sr)
+        segment = _fit_to_length(segment, target_samples)
+
+        # Short symmetric fades declick the downbeat cut without a per-cycle dip.
+        segment = _apply_edge_fades(segment, sr)
 
         mode = "oneshot" if bars <= 1 else "loop"
         loop_idx += 1
-
-        # Apply fade-out to avoid abrupt cuts
-        fade_samples = min(int(0.08 * sr), segment.shape[-1])  # 80ms
-        fade_curve = np.linspace(1.0, 0.0, fade_samples)
-        if is_stereo:
-            segment[..., -fade_samples:] *= fade_curve
-        else:
-            segment[-fade_samples:] *= fade_curve
 
         filename = f"{stem_name}_{label}_{loop_idx}.wav"
         write_data = segment.T if is_stereo else segment
         sf.write(str(output_path / filename), write_data, sr)
 
-        seg_duration = sec_end - sec_start
+        # duration_sec is the EXACT written length (target_samples / sr), which
+        # is a whole number of nominal bars to the sample. The frontend sets
+        # player.loopEnd = duration_sec, so the loop wraps exactly at the buffer
+        # end — where the 5ms fade-out reaches zero — for a gapless seam. Kept at
+        # sample-fine precision (6 dp) so layers don't drift over a long session.
+        duration_sec = target_samples / sr
         loops.append(Loop(
             file=filename,
             start_sec=round(sec_start, 3),
-            end_sec=round(sec_end, 3),
-            duration_sec=round(seg_duration, 3),
+            end_sec=round(sec_start + duration_sec, 3),
+            duration_sec=round(duration_sec, 6),
             bars=bars,
             energy=round(energy, 4),
             category="",

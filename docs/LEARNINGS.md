@@ -2,6 +2,31 @@
 
 Accumulated insights from testing the loop processing pipeline. These drive code improvements in our chopper, filter, and categorizer — the models (Demucs, allin1) are fixed, but our post-processing is where all refinement happens.
 
+## Solved: Gapless Loops at the Source (#18, 2026-07-09)
+
+**Problem:** Loops had audible seams. Three source-level defects: (1) the chopper snapped instrument cuts to silence *after* snapping to downbeats, shifting cuts off the beat grid and producing off-grid loops (e.g. 4.043 bars) that the frontend then papered over by rounding `loopEnd`; (2) an 80ms tail-only fade caused a volume dip every cycle and there was no fade-in, so downbeat cuts could click; (3) an untested worry that 192k MP3 encoder delay broke browser gapless looping.
+
+**Solution (chopper):** Non-vocal stems now cut on downbeats **only** (no silence snap), then trim/zero-pad each loop so its length is an exact multiple of the *nominal* bar (`60/bpm * time_signature`). Exactness is defined against the nominal grid, not the raw downbeat span, because real songs drift from a constant tempo and the frontend Transport runs at the nominal tempo. `chop_stem` now takes `bpm`/`time_signature` (guarded against degenerate `0`/`None` values that would otherwise divide-by-zero after Replicate spend). `duration_sec` is the exact written file length (`target_samples / sr`, a whole number of bars to the sample) at sample-fine precision — so the frontend's `loopEnd = duration_sec` wraps precisely at the buffer end, where the fade-out reaches zero.
+
+**Solution (fades):** Replaced the 80ms linear fade-out with a ~5ms **symmetric** fade-in + fade-out (`_apply_edge_fades`). At the loop seam the tail fades to zero and meets the head fading up from zero — declicked, with no per-cycle dip.
+
+**Solution (frontend):** `audio-engine.js` drives `player.loopEnd` from `track.duration_sec` instead of rounding `buffer.duration`. Lossy formats pad the decoded buffer past the true end, so rounding the buffer length can push the loop point past the real content and open a gap; the source duration stops the loop before any padding.
+
+**MP3 encoder-delay finding — VERIFIED, hypothesis REFUTED (keep MP3):**
+Empirically decoded with `AudioContext.decodeAudioData` in Chrome (Blink), cross-checked offline with `soundfile`/libsndfile. Method: generate a 2s 440Hz tone WAV whose signal is non-zero from sample 0, encode via the exact ingest path (`pydub` → LAME 192k), decode both, compare leading silence and length.
+
+| file | decoder | samples | lead silence | trail pad |
+|------|---------|--------:|-------------:|----------:|
+| `src.wav` (source) | Chrome | 88200 | 0 | 0 |
+| `src.mp3` (our 192k) | Chrome | 88200 | 0 (0.00ms) | 0 (0.00ms) |
+| `src.mp3` (our 192k) | libsndfile | 88200 | 0 | 0 |
+
+Our pydub export writes the Xing/LAME gapless header, and Chrome honors it: the MP3 decodes **sample-identical** to the source with zero encoder delay or padding. So the defect is not present for our pipeline. Per the acceptance criterion ("switch format only if the defect is confirmed AND the new format decodes on Safari/iOS") we **keep MP3 192k**. A real library loop (`library_sample.mp3`) shows ~45ms lead / ~47ms trail, but that is genuine content silence from the *old* snap-to-silence chopper (the controlled tone had zero) — exactly what the new downbeat cuts + 5ms fades remove. Reproduce with `scripts/verify_mp3_gapless.py`. (Safari/iOS and Firefox were not exercised here; WebKit/Gecko also honor the LAME gapless header, so no switch is warranted — revisit only if a real device shows a seam.)
+
+**Remaining manual step:** the 4 curated library songs must be re-ingested once against the deployed new backend (requires the source audio) so their loops become bar-exact; then listen-test per this doc.
+
+**Code refs:** `backend/app/services/loop_chopper.py` (`_fit_to_length`, `_apply_edge_fades`, non-vocal branch of `chop_stem`); `frontend/js/audio-engine.js` (`_setLoopPoints`).
+
 ## Architecture Insight
 
 The Replicate models (Demucs for stems, allin1 for song structure) are pre-trained and unchangeable. Our competitive advantage lives in the post-processing pipeline: chopping, energy filtering, categorization, and selection. Every listening session produces feedback that becomes a code improvement.

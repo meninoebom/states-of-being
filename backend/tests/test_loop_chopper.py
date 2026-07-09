@@ -186,10 +186,9 @@ def _write_wav(path, y, sr=SR):
 
 
 def test_chop_stem_drops_silent_sections_by_energy(tmp_path):
-    # Loud 0-4s, then silent 4-9s. The chorus section starts at 5.0 so the
-    # backward snap-to-silence (0.15s window) cannot reach back into the loud
-    # region — the 1s guard gap keeps this test about energy filtering, not
-    # boundary snapping.
+    # Loud 0-4s, then silent 4-9s. The chorus (5.0-9.0) is cut on its downbeats
+    # and lands entirely in the silent region, so the per-stem energy filter
+    # drops it while the loud verse is kept.
     loud = _tone(int(4.0 * SR), amp=0.4)
     quiet = _silence(int(5.0 * SR))
     wav = tmp_path / "drums.wav"
@@ -263,3 +262,150 @@ def test_chop_stem_vocals_drops_below_threshold_phrase(tmp_path):
 
     loops = lc.chop_stem(str(wav), sections, str(tmp_path / "out"), "vocals", downbeats)
     assert loops == []
+
+
+# ---------------------------------------------------------------------------
+# chop_stem — gapless-at-the-source: bar-exact cuts + loop-safe fades (#18)
+# ---------------------------------------------------------------------------
+
+
+def _read_wav_mono(path):
+    y, sr = sf.read(str(path))
+    if y.ndim == 2:
+        y = y.mean(axis=1)
+    return y, sr
+
+
+def test_nonvocal_loop_is_exact_nominal_bar_multiple_when_downbeats_drift(tmp_path):
+    # The Transport plays at the NOMINAL tempo, so loop length must be an exact
+    # multiple of the nominal bar (60/bpm * time_signature), NOT the raw
+    # downbeat span. Here the real downbeats run slightly long (2.1s apart) while
+    # the nominal bar is 2.0s — the loop must be quantized to the nominal grid.
+    bpm, ts = 120.0, 4
+    nominal_bar = (60.0 / bpm) * ts  # 2.0s
+    y = _tone(int(12.0 * SR), amp=0.4)  # long enough that a trim is needed
+    wav = tmp_path / "drums.wav"
+    _write_wav(wav, y)
+
+    downbeats = [0.0, 2.1, 4.2, 6.3, 8.4]  # ~2.1s bars => real tempo ~114 bpm
+    sections = [{"start": 0.0, "end": 8.4, "label": "verse"}]
+
+    loops = lc.chop_stem(
+        str(wav), sections, str(tmp_path / "out"), "drums", downbeats,
+        bpm=bpm, time_signature=ts,
+    )
+    assert len(loops) == 1
+    loop = loops[0]
+
+    # raw span 8.4s / 2.0s nominal -> round(4.2) = 4 bars -> 8.0s target
+    assert loop.bars == 4
+    assert loop.duration_sec == pytest.approx(4 * nominal_bar, abs=1e-3)
+
+    # The WAV on disk is an exact nominal-bar multiple, to the sample.
+    out, out_sr = _read_wav_mono(tmp_path / "out" / loop.file)
+    expected_samples = round(4 * nominal_bar * out_sr)
+    assert len(out) == expected_samples
+    # duration_sec is the exact written file length, so the frontend's
+    # loopEnd = duration_sec wraps precisely at the buffer end (fade-out zero).
+    assert loop.duration_sec == pytest.approx(len(out) / out_sr, abs=1e-6)
+
+
+@pytest.mark.parametrize("bpm, ts", [(0.0, 4), (None, 4), (120.0, 0)])
+def test_chop_stem_survives_degenerate_bpm_or_time_signature(tmp_path, bpm, ts):
+    # allin1 can report bpm 0/None and time_signature can be 0 (median of no
+    # beats). Those must NOT crash the chop with a div-by-zero AFTER Replicate
+    # has already been billed — the guard falls back to 120bpm / 4.
+    y = _tone(int(8.0 * SR), amp=0.4)
+    wav = tmp_path / "drums.wav"
+    _write_wav(wav, y)
+    sections = [{"start": 0.0, "end": 8.0, "label": "verse"}]
+    downbeats = [0.0, 2.0, 4.0, 6.0, 8.0]
+
+    loops = lc.chop_stem(
+        str(wav), sections, str(tmp_path / "out"), "drums", downbeats,
+        bpm=bpm, time_signature=ts,
+    )
+    # Falls back to 120bpm/4 -> 2.0s nominal bar; the 8s loud section survives.
+    assert len(loops) == 1
+    assert (tmp_path / "out" / loops[0].file).exists()
+
+
+def test_nonvocal_loop_pads_short_section_up_to_bar_multiple(tmp_path):
+    # A section a hair SHORT of a whole number of nominal bars is padded up to
+    # the nearest multiple (never left off-grid).
+    bpm, ts = 120.0, 4
+    nominal_bar = (60.0 / bpm) * ts  # 2.0s
+    y = _tone(int(8.0 * SR), amp=0.4)
+    wav = tmp_path / "bass.wav"
+    _write_wav(wav, y)
+
+    downbeats = [0.0, 1.9, 3.8]  # span 3.8s -> round(1.9 bars) = 2 bars -> pad to 4.0s
+    sections = [{"start": 0.0, "end": 3.8, "label": "chorus"}]
+
+    loops = lc.chop_stem(
+        str(wav), sections, str(tmp_path / "out"), "bass", downbeats,
+        bpm=bpm, time_signature=ts,
+    )
+    assert len(loops) == 1
+    assert loops[0].bars == 2
+    out, out_sr = _read_wav_mono(tmp_path / "out" / loops[0].file)
+    assert len(out) == round(2 * nominal_bar * out_sr)
+
+
+def test_nonvocal_loop_has_short_symmetric_edge_fades_not_80ms_tail(tmp_path):
+    # A constant-amplitude signal makes the fade envelope crisp to read back.
+    # Requirement: ~5ms fade-IN at the head and ~5ms fade-OUT at the tail, and
+    # NOT the old 80ms tail-only fade.
+    bpm, ts = 120.0, 4
+    sr = SR
+    dc = np.full(int(6.0 * sr), 0.5, dtype=np.float32)  # steady 0.5
+    wav = tmp_path / "drums.wav"
+    _write_wav(wav, dc)
+
+    downbeats = [0.0, 2.0, 4.0]
+    sections = [{"start": 0.0, "end": 4.0, "label": "verse"}]
+
+    loops = lc.chop_stem(
+        str(wav), sections, str(tmp_path / "out"), "drums", downbeats,
+        bpm=bpm, time_signature=ts,
+    )
+    out, out_sr = _read_wav_mono(tmp_path / "out" / loops[0].file)
+    fade = int(0.005 * out_sr)
+
+    # Head and tail start/end at (near) zero — no click at the loop seam.
+    assert abs(out[0]) < 0.05
+    assert abs(out[-1]) < 0.05
+    # Fade is SHORT: 20ms in from each edge the signal is already at full level,
+    # which would be impossible under an 80ms fade.
+    twenty_ms = int(0.02 * out_sr)
+    assert out[twenty_ms] == pytest.approx(0.5, abs=0.02)
+    assert out[len(out) - twenty_ms] == pytest.approx(0.5, abs=0.02)
+    # And the interior is untouched full level.
+    assert out[len(out) // 2] == pytest.approx(0.5, abs=0.02)
+    # Sanity: the fade actually ramps (midpoint of the head fade ~ half level).
+    assert out[fade // 2] < 0.4
+
+
+def test_nonvocal_cut_is_on_downbeat_not_snapped_into_nearby_dip(tmp_path):
+    # A brief quiet dip sits just inside the section, near the end boundary.
+    # The OLD forward snap-to-silence would have pulled the end cut into that
+    # dip; the new downbeat-only cut must ignore it and stay bar-exact.
+    bpm, ts = 120.0, 4
+    nominal_bar = (60.0 / bpm) * ts  # 2.0s
+    sr = SR
+    body = np.full(int(4.0 * sr), 0.4, dtype=np.float32)
+    # carve a 0.1s dip at 3.9s (inside the last bar)
+    body[int(3.9 * sr):int(4.0 * sr)] = 0.0
+    wav = tmp_path / "other.wav"
+    _write_wav(wav, np.concatenate([body, np.full(int(2.0 * sr), 0.4, dtype=np.float32)]))
+
+    downbeats = [0.0, 2.0, 4.0]
+    sections = [{"start": 0.0, "end": 4.0, "label": "verse"}]
+
+    loops = lc.chop_stem(
+        str(wav), sections, str(tmp_path / "out"), "other", downbeats,
+        bpm=bpm, time_signature=ts,
+    )
+    out, out_sr = _read_wav_mono(tmp_path / "out" / loops[0].file)
+    # Exactly 2 nominal bars, cut at the 4.0s downbeat — not shifted to the dip.
+    assert len(out) == round(2 * nominal_bar * out_sr)

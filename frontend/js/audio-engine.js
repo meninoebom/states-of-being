@@ -158,7 +158,7 @@ export class AudioEngine {
         const { player, track } = entries[i];
         if (!player.loaded || track.mode !== 'loop') continue;
         try {
-          this._quantizeLoop(player);
+          this._setLoopPoints(player, track);
           if (i === activeIdx) {
             player.sync().start(0);
           }
@@ -176,12 +176,29 @@ export class AudioEngine {
     return (60 / bpm) * timeSig;
   }
 
-  _quantizeLoop(player) {
-    const rawDur = player.buffer.duration;
-    const barCount = Math.round(rawDur / this._barDur);
-    if (barCount > 0) {
-      player.loopEnd = barCount * this._barDur;
+  /**
+   * Drive the loop end from the loop's source duration (issue #18).
+   *
+   * `duration_sec` is the exact length the backend wrote the loop file to. For
+   * non-vocal loops that is a whole number of nominal bars (to the sample), so
+   * the loop stays locked to the Transport bar grid. It also fixes gapless
+   * playback for lossy library formats: MP3/codec frame padding makes the
+   * DECODED buffer longer than the real audio, so setting loopEnd from the
+   * (larger) buffer duration — even rounded to whole bars — can push the loop
+   * point past the real content and open a gap. Using the source duration stops
+   * the loop before any padding, at the point where the 5ms fade-out hits zero.
+   *
+   * Vocal phrase loops are intentionally NOT bar-aligned: they loop at their
+   * full phrase length (their `duration_sec`) rather than being snapped to a
+   * bar, which would truncate the phrase. In this generative, non-beat-locked
+   * mix a repeating vocal phrase drifting against the grid reads as texture.
+   */
+  _setLoopPoints(player, track) {
+    const dur = track?.duration_sec;
+    if (dur && dur > 0) {
+      player.loopEnd = dur;
     }
+    // No metadata duration: fall back to Tone's default (loop the whole buffer).
   }
 
   getBarDuration() {
@@ -254,7 +271,7 @@ export class AudioEngine {
       // Fade in new
       const { player, track } = entries[index];
       if (player.loaded && track.mode === 'loop') {
-        this._quantizeLoop(player);
+        this._setLoopPoints(player, track);
         player.sync().start(0);
         player.volume.value = -Infinity;
         player.volume.rampTo(track.volume || -12, barDur, time);
