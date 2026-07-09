@@ -624,7 +624,16 @@ body.no-camera #intro-begin { display: none; }
     flex-wrap: wrap;
   }
 
-  #play-btn { flex: 1 1 auto; }
+  /* Comfortable touch targets (>= 44px) for the guided controls on phones. */
+  #play-btn {
+    flex: 1 1 auto;
+    min-height: 44px;
+  }
+
+  #mode-toggle button {
+    min-height: 44px;
+    padding: 10px 20px;
+  }
 
   main {
     flex-direction: column;
@@ -640,10 +649,80 @@ body.no-camera #intro-begin { display: none; }
 
   #camera-error { margin: 0 20px 16px; max-width: none; }
 
-  /* Give the self-view as much of the phone screen as possible. */
-  #mirror-stage { max-height: 68vh; border-radius: 10px; }
+  /* Give the self-view as much of the phone screen as possible. dvh tracks the
+     actual visible height as the iOS Safari toolbar shows/hides (vh does not). */
+  #mirror-stage {
+    max-height: 68vh;
+    max-height: 68dvh;
+    border-radius: 10px;
+  }
 
   /* Move fixed dev overlays out of the way so they never cover the stage. */
   #phase-indicator { top: 10px; right: 10px; padding: 8px 14px; font-size: 12px; }
   #debug-panel { max-width: 60vw; font-size: 11px; }
+
+  /* ----------------------------------------------------------------------
+     Active dance view: immersive full-screen self-view.
+     Use case: phone propped up, dancer across the room. The camera fills the
+     whole screen, the prompt is large and centered so it reads from a
+     distance, and the controls float at the bottom within the safe area.
+
+     The skeleton draw code (app.js drawSkeletons) already replicates
+     object-fit: cover using the real camera dimensions, so filling a portrait
+     screen crops the landscape feed to full height WITHOUT misaligning joints.
+     That lets us drop the camera-matched aspect ratio here and fill the screen.
+     ---------------------------------------------------------------------- */
+  body.mirror-active {
+    /* The stage is fixed and fills the screen; block page scroll / rubber-band
+       so a dance gesture never pulls the layout around. */
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
+  /* Header is setup chrome; reclaim its height for the stage while dancing. */
+  body.mirror-active header { display: none; }
+
+  body.mirror-active main { padding: 0; }
+
+  body.mirror-active #mirror-stage {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;   /* fallback for browsers without dvh */
+    height: 100dvh;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    border: none;
+    border-radius: 0;
+    /* Override the inline aspect-ratio app.js sets from the camera dimensions:
+       on a phone we fill the screen and rely on the cover-crop math for joints. */
+    aspect-ratio: auto !important;
+    z-index: 1;
+  }
+
+  /* Controls float at the bottom, clear of the home indicator. */
+  body.mirror-active #controls {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 3;
+    justify-content: center;
+    padding: 12px 20px calc(12px + env(safe-area-inset-bottom));
+    background: linear-gradient(to top, rgba(6, 6, 10, 0.9), rgba(6, 6, 10, 0));
+  }
+
+  /* Large, centered, across-the-room prompt, clear of the notch. */
+  body.mirror-active #phase-indicator {
+    top: calc(12px + env(safe-area-inset-top));
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    max-width: calc(100vw - 32px);
+    text-align: center;
+    font-size: clamp(20px, 6vw, 30px);
+    padding: 12px 24px;
+    z-index: 3;
+  }
 }
