@@ -164,6 +164,9 @@ picker.onSongSelected = async (metadata) => {
   grid.onTrackToggle = (filename, muted) => {
     engine.setTrackMuted(filename, muted);
   };
+  grid.onAudition = (track) => {
+    engine.auditionLoop(API_URL + track.url);
+  };
 
   songLoaded = true;
   updatePlayButton();

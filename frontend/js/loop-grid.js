@@ -13,6 +13,7 @@ export class LoopGrid {
   constructor(container) {
     this.container = container;
     this.onTrackToggle = null; // callback(filename, muted)
+    this.onAudition = null;    // callback(track) — audition a single loop
   }
 
   render(metadata) {
@@ -21,7 +22,7 @@ export class LoopGrid {
     // Hint text
     const hint = document.createElement('p');
     hint.className = 'grid-hint';
-    hint.textContent = 'Click cells to mute/unmute loops. Blue = playing, dim = muted.';
+    hint.textContent = 'Click cells to mute/unmute loops. ▶ auditions a single loop. Blue = playing, dim = muted.';
     this.container.appendChild(hint);
 
     // Deduplicate sections, preserving order
@@ -69,11 +70,23 @@ export class LoopGrid {
           const cell = document.createElement('div');
           cell.className = 'grid-cell has-track active';
           cell.dataset.category = cat;
-          cell.title = `${CATEGORY_LABELS[cat] || cat} — ${sectionLabel}\n${tracks.map(t => t.file).join('\n')}\nClick to mute/unmute`;
+          cell.title = `${CATEGORY_LABELS[cat] || cat} — ${sectionLabel}\n${tracks.map(t => t.file).join('\n')}\nClick to mute/unmute · ▶ to audition`;
 
           const dot = document.createElement('div');
           dot.className = 'track-dot';
           cell.appendChild(dot);
+
+          // Audition button — plays this one loop in isolation. stopPropagation
+          // so it doesn't also toggle the cell's mute state.
+          const audition = document.createElement('button');
+          audition.className = 'audition-btn';
+          audition.textContent = '▶';
+          audition.title = `Audition ${tracks[0].file}`;
+          audition.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (this.onAudition) this.onAudition(tracks[0]);
+          });
+          cell.appendChild(audition);
 
           let active = true;
           cell.addEventListener('click', () => {

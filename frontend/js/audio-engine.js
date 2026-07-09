@@ -21,6 +21,45 @@ export class AudioEngine {
     this.masterGain = null;
     this.masterFilter = null;
     this.onLoadProgress = null; // callback(loaded, total)
+    this._auditionPlayer = null; // standalone one-shot player, Transport-independent
+  }
+
+  /**
+   * Audition a single loop in isolation, straight to the speakers.
+   * Bypasses the Transport entirely so it works whether or not the ensemble
+   * is playing, with no bar quantization or sync. Any previous audition is
+   * stopped first. The button click is the user gesture that unlocks audio.
+   */
+  async auditionLoop(url) {
+    await Tone.start();
+    this.stopAudition();
+    const player = new Tone.Player({
+      url,
+      loop: false,
+      onload: () => {
+        // Guard against a newer audition having replaced us mid-load.
+        if (this._auditionPlayer === player) player.start();
+      },
+      onerror: (err) => console.warn(`Audition failed for ${url}:`, err),
+    }).toDestination();
+    // Self-dispose when the loop finishes naturally.
+    player.onstop = () => {
+      if (this._auditionPlayer === player) {
+        try { player.dispose(); } catch (e) { /* ignore */ }
+        this._auditionPlayer = null;
+      }
+    };
+    this._auditionPlayer = player;
+  }
+
+  /** Stop and tear down the current audition, if any. */
+  stopAudition() {
+    const p = this._auditionPlayer;
+    this._auditionPlayer = null;
+    if (!p) return;
+    try { p.onstop = null; } catch (e) { /* ignore */ }
+    try { p.stop(); } catch (e) { /* ignore */ }
+    try { p.dispose(); } catch (e) { /* ignore */ }
   }
 
   async load(metadata, baseUrl) {
@@ -235,6 +274,7 @@ export class AudioEngine {
   }
 
   dispose() {
+    this.stopAudition();
     Tone.Transport.stop();
     Tone.Transport.cancel();
     for (const entries of Object.values(this.players)) {
