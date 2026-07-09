@@ -130,19 +130,6 @@ function buildVolumeSection(title, volumeMap) {
   return details;
 }
 
-/** Sliders for the quiet baseline volumes (dB). */
-function buildQuietSection(title, quiet) {
-  const details = group(title);
-  const block = subGroup(details, 'baseline');
-  for (const cat of Object.keys(quiet)) {
-    block.appendChild(sliderRow({
-      label: cat, min: -60, max: 0, step: 1, value: quiet[cat],
-      onInput: (v) => { quiet[cat] = v; },
-    }));
-  }
-  return details;
-}
-
 /** "Copy config JSON" — capture the current live config for pasting back to code. */
 function buildCopyButton() {
   const btn = document.createElement('button');
@@ -188,6 +175,7 @@ export function initTuningPanel(panel) {
   panel.appendChild(buildReadingsSection('Readings (mix / gate)', DEFAULT_READINGS));
   panel.appendChild(buildReadingsSection('Relational readings', RELATIONAL_READINGS));
   panel.appendChild(buildVolumeSection('Volume targets (dB)', VOLUME_MAP));
-  panel.appendChild(buildQuietSection('Quiet baseline (dB)', QUIET_VOLUMES));
+  // Quiet baseline is one more volume set; reuse the volume section builder.
+  panel.appendChild(buildVolumeSection('Quiet baseline (dB)', { baseline: QUIET_VOLUMES }));
   panel.appendChild(buildCopyButton());
 }
