@@ -13,12 +13,26 @@
   </header>
 
   <div id="controls">
-    <button id="play-btn" disabled>Play</button>
-    <select id="mode-select">
+    <button id="play-btn" disabled>Start</button>
+
+    <!-- User-facing experience choice (guided flow) -->
+    <div id="mode-toggle">
+      <button data-mode="arc" class="active">Journey</button>
+      <button data-mode="webcam">Free Play</button>
+    </div>
+
+    <!-- Raw developer mode dropdown (only shown with ?debug=1) -->
+    <select id="mode-select" style="display:none">
       <option value="manual">Manual</option>
       <option value="webcam">Webcam</option>
       <option value="arc">Arc</option>
     </select>
+  </div>
+
+  <!-- Camera denial state: clear message + retry (guided flow needs the camera) -->
+  <div id="camera-error" style="display:none">
+    <p>The movement experience needs your camera. Please allow access, then try again.</p>
+    <button id="camera-retry">Retry camera</button>
   </div>
 
   <!-- Hidden video element for webcam -->

@@ -16,6 +16,21 @@ const API_URL = window.location.hostname === 'localhost'
   ? 'http://localhost:8000'
   : 'https://song-blender-api-production.up.railway.app';
 
+// Debug gate: ?debug=1 exposes the developer surface (raw mode dropdown, loop
+// grid, debug panel, ASCII phase indicator). Without it, /app is the guided
+// movement product: pick a song, Start, move. See issue #14.
+const DEBUG = new URLSearchParams(window.location.search).get('debug') === '1';
+
+// Friendly phase names for the guided flow's phase indicator.
+const PHASE_LABELS = {
+  await: 'Move to begin',
+  emerge: 'Emerging',
+  build: 'Building',
+  peak: 'Peak',
+  breakdown: 'Drifting',
+  resolve: 'Resolving',
+};
+
 const engine = new AudioEngine();
 const picker = new SongPicker(document.getElementById('song-picker'), API_URL);
 const grid = new LoopGrid(document.getElementById('loop-grid'));
@@ -29,10 +44,15 @@ const relationalReadings = new ReadingsEngine(RELATIONAL_READINGS);
 const status = document.getElementById('status');
 const playBtn = document.getElementById('play-btn');
 const modeSelect = document.getElementById('mode-select');
+const modeToggle = document.getElementById('mode-toggle');
+const loopGridEl = document.getElementById('loop-grid');
+const cameraError = document.getElementById('camera-error');
+const cameraRetryBtn = document.getElementById('camera-retry');
 const debugPanel = document.getElementById('debug-panel');
 let playing = false;
 let songLoaded = false;
-let mode = 'manual'; // 'manual' | 'webcam' | 'arc'
+// Guided flow defaults to Arc ('Journey'); debug preserves the old Manual default.
+let mode = DEBUG ? 'manual' : 'arc'; // 'manual' | 'webcam' | 'arc'
 let arc = null;      // ArcEngine instance (created on arc mode play)
 let arcFadeTimeout = null; // timeout ID for post-arc fade-to-silence
 let lastFrameTime = null; // for dt calculation
@@ -56,7 +76,17 @@ function setStatus(msg) { if (status) status.textContent = msg; }
 
 function updatePlayButton() {
   playBtn.disabled = !songLoaded;
-  playBtn.textContent = playing ? 'Stop' : 'Play';
+  playBtn.textContent = playing ? 'Stop' : 'Start';
+}
+
+function showCameraError() { if (cameraError) cameraError.style.display = 'block'; }
+function hideCameraError() { if (cameraError) cameraError.style.display = 'none'; }
+
+/** Highlight the guided toggle button matching the current mode. */
+function syncModeToggle() {
+  if (!modeToggle) return;
+  modeToggle.querySelectorAll('button').forEach((b) =>
+    b.classList.toggle('active', b.dataset.mode === mode));
 }
 
 // --- Song selection ---
@@ -68,6 +98,7 @@ picker.onSongSelected = async (metadata) => {
 
   songLoaded = false;
   updatePlayButton();
+  hideCameraError();
   setStatus(`Loading ${metadata.name}...`);
 
   engine.onLoadProgress = (loaded, total) => {
@@ -89,7 +120,7 @@ picker.onSongSelected = async (metadata) => {
 
   songLoaded = true;
   updatePlayButton();
-  setStatus(`${metadata.name} — ${metadata.bpm} BPM — Click Play to start`);
+  setStatus(`${metadata.name} · ${metadata.bpm} BPM · Click Start to begin`);
 };
 
 // --- Play/Stop ---
@@ -100,12 +131,36 @@ playBtn.addEventListener('click', async () => {
     stopPlayback();
     setStatus('Stopped');
   } else {
-    await Tone.start();
-    engine.start();
-    startPlayback();
+    await attemptStart();
   }
   updatePlayButton();
 });
+
+// Camera denial retry: re-run the same start flow (acquires camera, then plays).
+if (cameraRetryBtn) {
+  cameraRetryBtn.addEventListener('click', async () => {
+    await attemptStart();
+    updatePlayButton();
+  });
+}
+
+/**
+ * Begin playback. Movement modes acquire the webcam first; on denial we surface
+ * a clear retry message instead of silently dropping to a dead manual screen.
+ */
+async function attemptStart() {
+  if (mode === 'webcam' || mode === 'arc') {
+    hideCameraError();
+    await ensureWebcam();
+    if (!webcamRunning) {
+      showCameraError();
+      return;
+    }
+  }
+  await Tone.start();
+  engine.start();
+  startPlayback();
+}
 
 /** Begin playback for the current mode, setting an audible baseline. */
 function startPlayback() {
@@ -124,10 +179,10 @@ function startPlayback() {
     }
     if (phaseIndicator) {
       phaseIndicator.style.display = 'block';
-      phaseIndicator.textContent = 'AWAIT — move to begin';
+      phaseIndicator.textContent = DEBUG ? 'AWAIT — move to begin' : 'Move to begin';
     }
     grid.setAvailableCategories(['texture']);
-    setStatus('Arc mode — waiting for movement...');
+    setStatus('Waiting for movement...');
   } else if (mode === 'webcam') {
     // Audible quiet baseline so the app is never silent while out of frame
     for (const cat of CATEGORIES) engine.setCategoryVolume(cat, QUIET_VOLUMES[cat]);
@@ -151,16 +206,26 @@ function stopPlayback() {
 }
 
 // --- Mode switching ---
+// Debug users pick from the raw dropdown; guided users pick Journey / Free Play.
 if (modeSelect) {
   modeSelect.addEventListener('change', (e) => setMode(e.target.value));
+}
+if (modeToggle) {
+  modeToggle.querySelectorAll('button').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      setMode(btn.dataset.mode);
+      syncModeToggle();
+    });
+  });
 }
 
 /**
  * Single entry point for mode transitions. Tears down the previous mode by
- * stopping playback (an accepted simplification), then wires up the new one.
- * Movement modes require the webcam; if it fails to start we fall back to manual.
+ * stopping playback (an accepted simplification). The webcam is acquired at
+ * Start (attemptStart), not here, so camera permission ties to an explicit
+ * user gesture and denial surfaces at a clear moment.
  */
-async function setMode(newMode) {
+function setMode(newMode) {
   if (newMode === mode) return;
 
   // Always tear down: clears playback AND lingering UI (e.g. a completed arc's
@@ -171,25 +236,10 @@ async function setMode(newMode) {
     setStatus('Stopped');
     updatePlayButton();
   }
-
-  if (newMode === 'webcam' || newMode === 'arc') {
-    await ensureWebcam();
-    if (!webcamRunning) {
-      newMode = 'manual';
-      modeSelect.value = 'manual';
-    }
-  }
+  hideCameraError();
 
   mode = newMode;
-
-  if (mode === 'manual') {
-    stopWebcam();
-    if (debugPanel) debugPanel.style.display = 'none';
-    if (skeletonCanvas) skeletonCanvas.style.display = 'none';
-  } else {
-    if (debugPanel) debugPanel.style.display = 'block';
-    if (skeletonCanvas) skeletonCanvas.style.display = 'block';
-  }
+  if (mode === 'manual') stopWebcam();
 }
 
 // --- Webcam / MediaPipe ---
@@ -200,25 +250,29 @@ async function ensureWebcam() {
   try {
     setStatus('Starting webcam...');
 
-    const { PoseLandmarker, FilesetResolver } = await import(
-      'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs'
-    );
+    // Build the landmarker once and reuse it; retries after a camera denial
+    // should not leak a fresh GPU/WASM model each time.
+    if (!poseLandmarker) {
+      const { PoseLandmarker, FilesetResolver } = await import(
+        'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs'
+      );
 
-    const vision = await FilesetResolver.forVisionTasks(
-      'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
-    );
+      const vision = await FilesetResolver.forVisionTasks(
+        'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
+      );
 
-    poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
-      baseOptions: {
-        modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
-        delegate: 'GPU',
-      },
-      runningMode: 'VIDEO',
-      numPoses: 2,
-      minPoseDetectionConfidence: 0.6,
-      minPosePresenceConfidence: 0.6,
-      minTrackingConfidence: 0.5,
-    });
+      poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
+        baseOptions: {
+          modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
+          delegate: 'GPU',
+        },
+        runningMode: 'VIDEO',
+        numPoses: 2,
+        minPoseDetectionConfidence: 0.6,
+        minPosePresenceConfidence: 0.6,
+        minTrackingConfidence: 0.5,
+      });
+    }
 
     video = document.getElementById('webcam-video');
     const stream = await navigator.mediaDevices.getUserMedia({
@@ -230,11 +284,15 @@ async function ensureWebcam() {
     await video.play();
 
     webcamRunning = true;
+    // Skeleton overlay is the "it sees me" feedback for everyone; the debug
+    // panel is developer-only.
+    if (skeletonCanvas) skeletonCanvas.style.display = 'block';
+    if (DEBUG && debugPanel) debugPanel.style.display = 'block';
     setStatus('Webcam active');
     detectLoop();
   } catch (err) {
     console.error('Webcam init failed:', err);
-    setStatus(`Webcam failed: ${err.message}`);
+    setStatus('Camera unavailable');
   }
 }
 
@@ -244,6 +302,8 @@ function stopWebcam() {
     video.srcObject.getTracks().forEach(t => t.stop());
     video.srcObject = null;
   }
+  if (skeletonCanvas) skeletonCanvas.style.display = 'none';
+  if (debugPanel) debugPanel.style.display = 'none';
 }
 
 function detectLoop() {
@@ -470,7 +530,7 @@ function handlePhaseChange(phase) {
   if (section) {
     swapLoopsToSection(section);
   }
-  setStatus(`Arc: ${phase.id.toUpperCase()}`);
+  setStatus(DEBUG ? `Arc: ${phase.id.toUpperCase()}` : (PHASE_LABELS[phase.id] || ''));
   if (phaseIndicator) updatePhaseIndicator(arc.getCurrentPhase());
   grid.setAvailableCategories(phase.categories);
 }
@@ -490,8 +550,8 @@ function swapLoopsToSection(targetSection) {
 }
 
 function handleArcComplete() {
-  setStatus('Arc complete');
-  if (phaseIndicator) phaseIndicator.textContent = 'COMPLETE';
+  setStatus(DEBUG ? 'Arc complete' : 'Journey complete');
+  if (phaseIndicator) phaseIndicator.textContent = DEBUG ? 'COMPLETE' : 'Journey complete';
   // Fade all to silence over ~8 bars
   const fadeDur = engine.getBarDuration() * 8;
   engine.fadeOutAll(fadeDur);
@@ -502,7 +562,7 @@ function handleArcComplete() {
     playing = false;
     arc = null;
     updatePlayButton();
-    setStatus('Arc complete — click Play to go again');
+    setStatus(DEBUG ? 'Arc complete — click Play to go again' : 'Click Start to go again');
   }, fadeDur * 1000 + 500);
 }
 
@@ -513,8 +573,21 @@ function updatePhaseIndicator(phase) {
   // Only update DOM when visible progress changes
   if (pct === _lastPhaseIndicatorPct) return;
   _lastPhaseIndicatorPct = pct;
-  phaseIndicator.textContent = `${phase.id.toUpperCase()} ${bar(phase.progress, 20)} ${pct}%  (${phase.index + 1}/${phase.totalPhases})`;
+  phaseIndicator.textContent = DEBUG
+    ? `${phase.id.toUpperCase()} ${bar(phase.progress, 20)} ${pct}%  (${phase.index + 1}/${phase.totalPhases})`
+    : (PHASE_LABELS[phase.id] || phase.id);
 }
 
-// --- Init ---
+// --- Init: apply the debug vs guided surface ---
+if (DEBUG) {
+  document.body.classList.add('debug');
+  if (modeToggle) modeToggle.style.display = 'none';
+  if (modeSelect) { modeSelect.style.display = ''; modeSelect.value = mode; }
+} else {
+  document.body.classList.add('guided');
+  if (modeSelect) modeSelect.style.display = 'none';
+  if (loopGridEl) loopGridEl.style.display = 'none';
+  syncModeToggle();
+}
+
 picker.load();
