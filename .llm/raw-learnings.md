@@ -26,3 +26,17 @@ Two gotchas for `backend/tests/` when a test imports the app:
 1. `app.config.Settings` requires `REPLICATE_API_TOKEN`; CI doesn't set it. A `conftest.py` doing `os.environ.setdefault("REPLICATE_API_TOKEN", "test-token")` (runs at collection import time) unblocks app import without a real token, since tests never make a real Replicate call.
 2. slowapi rate-limits per client IP and the suite reuses one IP, so after 5 posts to a `5/hour` endpoint later tests 429. Set `limiter.enabled = False` in the client fixture. The `Limiter` object exposes `.enabled`.
 Also: `asyncio.wait_for` around `asyncio.to_thread(...)` frees the awaiting request on timeout but CANNOT kill the worker thread; it runs to completion on the shared default executor. Good enough to un-hang the client; watch for pool starvation if many leak.
+
+## 2026-07-08 — `_is_front_loaded` uses mean energy, not energy share (bug, #17)
+`loop_chopper._is_front_loaded` compares per-sample MEAN energy of the first
+fifth against the whole loop (`np.mean(front**2) / np.mean(total**2)`). CLAUDE.md
+documents the intent as an energy SHARE ("first 20% has >75% of total energy").
+For an evenly-loud loop the mean ratio is 1.0 (>0.75) so it is wrongly flagged
+front-loaded and discarded, making the vocal filter far more aggressive than
+intended. Left as `xfail(strict=True)` in test_loop_chopper.py pending Brandon's
+by-ear decision. Fix would be a share comparison: `sum(front**2)/sum(total**2)`.
+
+Test gotcha: snap-to-silence pulls a section boundary BACKWARD into an adjacent
+loud region (0.15s window), so a chop_stem energy-drop test needs a >0.15s guard
+gap between the loud region and the silent section's start, or the segment grabs
+loud audio and survives the energy filter.
