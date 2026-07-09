@@ -86,10 +86,11 @@ export class AudioEngine {
       loadedOk++;
     }
 
-    // Reject dead loads. If every selected loop failed (dead/missing audio
-    // files, decode failure), this song is unplayable. Fail loudly instead of
-    // pretending success with a silent engine — see issue #16.
-    if (tracks.length > 0 && loadedOk === 0) {
+    // Reject dead loads. If nothing playable loaded — every selected loop
+    // failed (dead/missing files, decode failure), or the song had no selected
+    // loops at all — this song is unplayable. Fail loudly instead of pretending
+    // success with a silent engine. See issue #16.
+    if (loadedOk === 0) {
       this.dispose();
       throw new Error(`Could not load any audio for "${metadata.name || 'this song'}".`);
     }
