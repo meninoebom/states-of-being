@@ -246,6 +246,34 @@ body.guided #song-picker {
 .grid-cell.has-track {
   cursor: pointer;
   transition: background 0.2s;
+  position: relative;
+}
+
+.audition-btn {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  font-size: 9px;
+  line-height: 1;
+  color: #8af;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid #2a2a45;
+  border-radius: 3px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s;
+}
+
+.grid-cell.has-track:hover .audition-btn {
+  opacity: 1;
+}
+
+.audition-btn:hover {
+  background: #8af;
+  color: #0d0d18;
 }
 
 .grid-cell.has-track:hover {

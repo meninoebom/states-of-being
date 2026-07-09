@@ -163,6 +163,7 @@ Auto-detects 0, 1, or 2 bodies. No mode toggle for body count.
 
 - **Loop sync drift:** Loop file durations aren't exact bar multiples (e.g., 4.043 bars from section chopping). Fix: `player.loopEnd = Math.round(duration / barDuration) * barDuration` snaps to nearest whole bar.
 - **Tone.Transport sync:** All players must use `player.sync().start(0)` for shared clock. Individual `.start()` causes drift.
+- **Audition is the exception to Transport sync:** Previewing a single loop wants the opposite of the ensemble (no clock, no bar quantization, no sync). `AudioEngine.auditionLoop()` uses a standalone `Tone.Player` on `.toDestination()` that never touches the Transport, so it works whether or not the ensemble is playing. Don't reuse the synced ensemble players for one-shot preview.
 - **AdaptiveRange normalizer:** Expands instantly on new extremes, contracts slowly (decayRate 0.998). First few seconds of movement will recalibrate — this is expected, not a bug.
 
 ## Calm Mirror (index.html)
