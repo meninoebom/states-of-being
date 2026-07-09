@@ -13,8 +13,11 @@ it needs librosa to decode, so it is imported lazily and exercised separately.
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Awaitable, Callable
+
+logger = logging.getLogger(__name__)
 
 # 1 MiB read chunk: large enough to keep syscalls cheap, small enough that an
 # oversized upload is caught within a megabyte rather than after buffering it all.
@@ -106,6 +109,11 @@ def probe_duration(path: str) -> float:
     try:
         return float(librosa.get_duration(path=path))
     except Exception as e:  # noqa: BLE001 - any decode failure means bad input
+        # We return a 400 (bad input), but a decode failure can ALSO mean our
+        # own decode stack is broken (missing native backend, cold-start JIT
+        # error). Log it so a spike of "corrupt file" 400s across every upload
+        # is distinguishable from ordinary bad user uploads.
+        logger.warning("probe_duration failed for %s: %s", path, e, exc_info=True)
         raise UploadValidationError(
             400, "Could not decode audio file. It may be corrupt or not a real audio file."
         ) from e

@@ -32,8 +32,13 @@ async def separate_stems(audio_path: str, output_dir: str) -> dict[str, str]:
     # Bound the Replicate call so a hung upstream can't hang the request forever.
     # NOTE: wait_for cancels the *await*, freeing the request promptly, but the
     # underlying worker thread (replicate.run) cannot be force-killed and may run
-    # to completion in the background. That is acceptable here: the goal is to
-    # stop blocking the client, not to reclaim the thread.
+    # to completion in the background on the default thread pool. That is
+    # acceptable here: the goal is to stop blocking the client, not to reclaim
+    # the thread. FOLLOW-UP (#19 review): if a Replicate outage leaks many such
+    # threads they share the default executor with probe_duration; if Railway
+    # logs ever show that starvation, move Demucs to a dedicated executor and/or
+    # add a per-call timeout to the replicate client. allin1 also lacks a
+    # timeout by design (it degrades to librosa on failure), tracked separately.
     try:
         output = await asyncio.wait_for(
             asyncio.to_thread(_run_demucs, audio_path),

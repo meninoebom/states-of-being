@@ -96,9 +96,8 @@ async def process_song(request: Request, file: UploadFile):
             bpm = beat_grid.bpm
             downbeats = beat_grid.downbeats
             beats = beat_grid.beats
-            # Estimate duration from the audio file
-            import librosa
-            duration = float(librosa.get_duration(path=str(input_path)))
+            # Reuse the duration already probed during validation (line above);
+            # no need to decode the file a second time.
             sections = [{"start": 0.0, "end": duration, "label": "full"}]
 
         # Derive time signature from beats/downbeats
