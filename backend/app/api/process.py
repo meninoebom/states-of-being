@@ -9,8 +9,16 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, Request, UploadFile
 
 from app.config import settings
+from app.exceptions import UpstreamServiceError
 from app.limiter import limiter
 from app.spend_cap import DailySpendTracker
+from app.upload_validation import (
+    UploadValidationError,
+    probe_duration,
+    stream_to_disk,
+    validate_duration,
+    validate_extension,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -27,40 +35,42 @@ spend_tracker = DailySpendTracker(cap_usd=settings.DAILY_SPEND_CAP_USD)
 async def process_song(request: Request, file: UploadFile):
     """Upload a song and get back categorized, choppable loops.
 
-    Pipeline: upload -> [parallel: structure analysis + stem separation] -> per-stem chop -> categorize -> select
+    Pipeline: validate -> reserve spend -> [structure analysis + stem separation] -> per-stem chop -> categorize -> select
+
+    Error taxonomy:
+      - UploadValidationError -> 4xx: the client's input is bad (wrong type,
+        oversized, undecodable, too long). Rejected BEFORE any Replicate spend.
+      - spend cap reached -> 503: we are healthy but out of daily budget.
+      - UpstreamServiceError -> 502: Replicate (Demucs) timed out or errored.
+      - any other exception -> 500: an unexpected pipeline bug on our side.
     """
-    if not file.filename:
-        raise HTTPException(400, "Filename is required")
-    ext = Path(file.filename).suffix.lower()
-    if ext not in SUPPORTED_EXTENSIONS:
-        raise HTTPException(400, f"Unsupported format. Accepted: {', '.join(sorted(SUPPORTED_EXTENSIONS))}")
-
-    contents = await file.read()
-    max_bytes = settings.MAX_UPLOAD_MB * 1024 * 1024
-    if len(contents) > max_bytes:
-        raise HTTPException(413, f"File exceeds {settings.MAX_UPLOAD_MB}MB limit")
-
-    # Global daily spend cap: reserve this request's estimated Replicate cost
-    # BEFORE doing any paid work. If the day's budget is exhausted, reject now.
-    # Note: budget is reserved up front, so a request that later fails still
-    # counts against the cap. This is deliberate — we err toward protecting the
-    # bill rather than risking an unbounded retry loop.
-    if not spend_tracker.try_spend(settings.COST_PER_REQUEST_USD):
-        logger.warning("Daily spend cap reached; rejecting request")
-        raise HTTPException(
-            503,
-            "Daily processing limit reached. Please try again tomorrow (resets at 00:00 UTC).",
-        )
-
     from app.main import TEMP_DIR
 
     job_id = uuid.uuid4().hex[:8]
     job_dir = Path(TEMP_DIR) / job_id
-    job_dir.mkdir(parents=True)
 
     try:
+        # --- Validate cheaply, BEFORE spending on Replicate ---
+        ext = validate_extension(file.filename, SUPPORTED_EXTENSIONS)
+        job_dir.mkdir(parents=True)
         input_path = job_dir / f"input{ext}"
-        input_path.write_bytes(contents)
+
+        # Stream to disk with an enforced byte cap (never buffer the whole file
+        # in RAM), then decode-probe for corruption and over-length audio.
+        max_bytes = settings.MAX_UPLOAD_MB * 1024 * 1024
+        await stream_to_disk(file.read, str(input_path), max_bytes)
+        duration = await asyncio.to_thread(probe_duration, str(input_path))
+        validate_duration(duration, settings.MAX_DURATION_SEC)
+
+        # --- Reserve the daily Replicate budget only once input is known-good ---
+        # A rejected reservation still counts nothing against the cap; a reserved
+        # request that later fails does count. We err toward protecting the bill.
+        if not spend_tracker.try_spend(settings.COST_PER_REQUEST_USD):
+            logger.warning("Daily spend cap reached; rejecting request")
+            raise HTTPException(
+                503,
+                "Daily processing limit reached. Please try again tomorrow (resets at 00:00 UTC).",
+            )
 
         from app.services.song_analyzer import analyze_structure
         from app.services.stem_separator import separate_stems
@@ -139,7 +149,19 @@ async def process_song(request: Request, file: UploadFile):
             "tracks": all_tracks,
         }
 
+    except UploadValidationError as e:
+        # Bad user input, rejected before (or without) any Replicate spend.
+        shutil.rmtree(job_dir, ignore_errors=True)
+        raise HTTPException(e.status_code, e.detail) from e
+    except UpstreamServiceError:
+        # Replicate timed out or errored — distinct from a bug on our side.
+        logger.warning("Upstream (Replicate) failure for job %s", job_id, exc_info=True)
+        shutil.rmtree(job_dir, ignore_errors=True)
+        raise HTTPException(
+            502, "Audio processing service is unavailable or timed out. Please try again later."
+        )
     except HTTPException:
+        shutil.rmtree(job_dir, ignore_errors=True)
         raise
     except Exception:
         logger.exception("Processing failed for job %s", job_id)
