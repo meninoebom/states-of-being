@@ -35,19 +35,21 @@
     <button id="camera-retry">Retry camera</button>
   </div>
 
-  <!-- Hidden video element for webcam -->
-  <video id="webcam-video" style="display:none" playsinline></video>
-
   <main>
     <div id="song-picker"></div>
+
+    <!-- Full-size mirror stage: your webcam feed + skeleton overlay + reading
+         tint. Shown while a movement mode is running (body.mirror-active). -->
+    <div id="mirror-stage">
+      <video id="webcam-video" playsinline></video>
+      <canvas id="skeleton-canvas"></canvas>
+    </div>
+
     <div id="loop-grid"></div>
   </main>
 
   <!-- Phase indicator for arc mode -->
   <div id="phase-indicator" style="display:none"></div>
-
-  <!-- Skeleton overlay for body tracking verification -->
-  <canvas id="skeleton-canvas" style="display:none"></canvas>
 
   <!-- Debug overlay for movement qualities + readings -->
   <pre id="debug-panel" style="display:none"></pre>

@@ -269,17 +269,54 @@ body.guided #song-picker {
   margin-bottom: 12px;
 }
 
-/* Skeleton canvas */
-#skeleton-canvas {
-  position: fixed;
-  bottom: 16px;
-  left: 16px;
-  width: 200px;
-  height: 150px;
-  background: rgba(10, 10, 15, 0.85);
+/* Mirror stage: full-size self-view (video + skeleton overlay + reading tint).
+   Hidden until a movement mode is running. */
+#mirror-stage {
+  display: none;
+  position: relative;
+  width: 100%;
+  max-width: 1024px;
+  margin: 0 auto;
+  /* aspect-ratio is overridden in JS to match the actual camera dimensions,
+     so object-fit: cover never crops (joints stay aligned). */
+  aspect-ratio: 4 / 3;
+  max-height: 78vh;
+  background: #06060a;
   border: 1px solid #1a1a2e;
-  border-radius: 8px;
-  z-index: 100;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+body.mirror-active #mirror-stage {
+  display: block;
+}
+
+/* While the mirror is active it is the main stage: hide the song list. */
+body.mirror-active #song-picker {
+  display: none;
+}
+
+body.mirror-active main {
+  display: block;
+}
+
+#mirror-stage video,
+#mirror-stage canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Mirror the feed so moving left moves your on-screen self left. The skeleton
+   canvas is drawn already-mirrored in JS, so it must NOT be flipped here. */
+#webcam-video {
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+
+#skeleton-canvas {
+  pointer-events: none;
 }
 
 /* Phase indicator */

@@ -70,9 +70,47 @@ let poseLandmarker = null;
 let video = null;
 let webcamRunning = false;
 
-// Skeleton canvas
+// Mirror stage (full-size self-view) + skeleton overlay canvas
+const mirrorStage = document.getElementById('mirror-stage');
 const skeletonCanvas = document.getElementById('skeleton-canvas');
 const skeletonCtx = skeletonCanvas ? skeletonCanvas.getContext('2d') : null;
+
+/** True while the mirror stage is on screen (a movement mode is running). */
+function mirrorActive() {
+  return document.body.classList.contains('mirror-active');
+}
+
+// Logical (CSS-pixel) size of the stage. Drawing uses these; the canvas backing
+// store is scaled up by devicePixelRatio for crisp lines on HiDPI screens.
+let stageW = 0, stageH = 0;
+
+/**
+ * Match the canvas backing store to the stage's displayed size (times DPR) so
+ * the skeleton stays crisp next to the native-resolution video. Driven by a
+ * ResizeObserver (not the per-frame render loop) to keep layout reads off the
+ * hot path. The context is scaled so drawSkeletons can work in CSS pixels.
+ */
+function sizeCanvasToStage() {
+  if (!skeletonCanvas || !skeletonCtx || !mirrorStage) return;
+  const rect = mirrorStage.getBoundingClientRect();
+  const w = Math.round(rect.width);
+  const h = Math.round(rect.height);
+  if (w === 0 || h === 0) return;
+  stageW = w;
+  stageH = h;
+  const dpr = window.devicePixelRatio || 1;
+  const bw = Math.round(w * dpr), bh = Math.round(h * dpr);
+  if (skeletonCanvas.width !== bw || skeletonCanvas.height !== bh) {
+    skeletonCanvas.width = bw;
+    skeletonCanvas.height = bh;
+  }
+  // Re-applied every call: setting canvas.width above resets the transform.
+  skeletonCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+if (mirrorStage && typeof ResizeObserver !== 'undefined') {
+  new ResizeObserver(sizeCanvasToStage).observe(mirrorStage);
+}
 
 function setStatus(msg) { if (status) status.textContent = msg; }
 
@@ -292,9 +330,14 @@ async function ensureWebcam() {
     await video.play();
 
     webcamRunning = true;
-    // Skeleton overlay is the "it sees me" feedback for everyone; the debug
-    // panel is developer-only.
-    if (skeletonCanvas) skeletonCanvas.style.display = 'block';
+    // Full-size mirror stage is the "it sees me" feedback for everyone; the
+    // debug panel is developer-only. Match the stage aspect ratio to the actual
+    // camera frame so object-fit: cover never crops the feed.
+    if (mirrorStage && video.videoWidth && video.videoHeight) {
+      mirrorStage.style.aspectRatio = `${video.videoWidth} / ${video.videoHeight}`;
+    }
+    document.body.classList.add('mirror-active');
+    sizeCanvasToStage();
     if (DEBUG && debugPanel) debugPanel.style.display = 'block';
     if (DEBUG && tuningPanel) tuningPanel.style.display = 'block';
     setStatus('Webcam active');
@@ -311,7 +354,7 @@ function stopWebcam() {
     video.srcObject.getTracks().forEach(t => t.stop());
     video.srcObject = null;
   }
-  if (skeletonCanvas) skeletonCanvas.style.display = 'none';
+  document.body.classList.remove('mirror-active');
   if (debugPanel) debugPanel.style.display = 'none';
   if (tuningPanel) tuningPanel.style.display = 'none';
 }
@@ -440,22 +483,46 @@ const POSE_CONNECTIONS = [
 const BODY_COLORS = ['#8af', '#fa8']; // body 0 = blue, body 1 = orange
 const READING_COLORS = { flowing: '#6ef', agitated: '#f66', stillness: '#668', reaching: '#fa4', unison: '#af6', opposition: '#f6a' };
 
-function drawSkeletons(allLandmarks, bodyCount, readingValues) {
-  if (!skeletonCtx || !skeletonCanvas || skeletonCanvas.style.display === 'none') return;
+/** Parse a 3- or 6-digit hex color to {r,g,b}. */
+function hexToRgb(hex) {
+  let h = hex.replace('#', '');
+  if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+  const n = parseInt(h, 16);
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
 
-  const W = skeletonCanvas.width = 200;
-  const H = skeletonCanvas.height = 150;
+// Precompute reading colors as RGB so the per-frame tint does no string parsing.
+const READING_RGB = Object.fromEntries(
+  Object.entries(READING_COLORS).map(([id, hex]) => [id, hexToRgb(hex)]),
+);
+
+const JOINT_INDICES = [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28];
+
+function drawSkeletons(allLandmarks, bodyCount, readingValues) {
+  if (!skeletonCtx || !skeletonCanvas || !mirrorActive()) return;
+
+  const W = stageW;
+  const H = stageH;
+  if (W === 0 || H === 0) return; // stage not laid out yet
   skeletonCtx.clearRect(0, 0, W, H);
 
-  // If relational readings are active, tint the background
-  for (const r of readingValues) {
-    if ((r.id === 'unison' || r.id === 'opposition') && r.active && r.value > 0.1) {
-      skeletonCtx.fillStyle = r.id === 'unison'
-        ? `rgba(170, 255, 100, ${r.value * 0.15})`
-        : `rgba(255, 100, 170, ${r.value * 0.15})`;
-      skeletonCtx.fillRect(0, 0, W, H);
-    }
-  }
+  // Map a normalized landmark to canvas pixels, replicating the video's
+  // object-fit: cover so joints track the (possibly cropped) displayed frame.
+  // x is mirrored to match the CSS-mirrored video.
+  const vw = video && video.videoWidth ? video.videoWidth : W;
+  const vh = video && video.videoHeight ? video.videoHeight : H;
+  const scale = Math.max(W / vw, H / vh);
+  const dw = vw * scale, dh = vh * scale;
+  const offX = (W - dw) / 2, offY = (H - dh) / 2;
+  const mapX = (x) => offX + (1 - x) * dw;
+  const mapY = (y) => offY + y * dh;
+
+  drawReadingTint(readingValues, W, H);
+
+  // Scale stroke/joint sizes to the stage so lines read well at full size.
+  const lineWidth = Math.max(2, W * 0.006);
+  const jointR = Math.max(3, W * 0.008);
+  const headR = Math.max(5, W * 0.014);
 
   for (let b = 0; b < bodyCount && b < 2; b++) {
     const landmarks = allLandmarks[b];
@@ -463,26 +530,26 @@ function drawSkeletons(allLandmarks, bodyCount, readingValues) {
 
     // Connections
     skeletonCtx.strokeStyle = color;
-    skeletonCtx.lineWidth = 2;
+    skeletonCtx.lineWidth = lineWidth;
     skeletonCtx.lineCap = 'round';
 
     for (const [a, i] of POSE_CONNECTIONS) {
       const la = landmarks[a], lb = landmarks[i];
       if (la.visibility > 0.3 && lb.visibility > 0.3) {
         skeletonCtx.beginPath();
-        skeletonCtx.moveTo((1 - la.x) * W, la.y * H);
-        skeletonCtx.lineTo((1 - lb.x) * W, lb.y * H);
+        skeletonCtx.moveTo(mapX(la.x), mapY(la.y));
+        skeletonCtx.lineTo(mapX(lb.x), mapY(lb.y));
         skeletonCtx.stroke();
       }
     }
 
     // Joints
     skeletonCtx.fillStyle = color;
-    for (const i of [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28]) {
+    for (const i of JOINT_INDICES) {
       const lm = landmarks[i];
       if (lm.visibility > 0.3) {
         skeletonCtx.beginPath();
-        skeletonCtx.arc((1 - lm.x) * W, lm.y * H, 3, 0, Math.PI * 2);
+        skeletonCtx.arc(mapX(lm.x), mapY(lm.y), jointR, 0, Math.PI * 2);
         skeletonCtx.fill();
       }
     }
@@ -491,10 +558,36 @@ function drawSkeletons(allLandmarks, bodyCount, readingValues) {
     const nose = landmarks[0];
     if (nose.visibility > 0.3) {
       skeletonCtx.beginPath();
-      skeletonCtx.arc((1 - nose.x) * W, nose.y * H, 5, 0, Math.PI * 2);
+      skeletonCtx.arc(mapX(nose.x), mapY(nose.y), headR, 0, Math.PI * 2);
       skeletonCtx.fill();
     }
   }
+}
+
+/**
+ * Ambient color feedback: the strongest active reading colors the stage as a
+ * soft edge vignette, leaving the center of the self-view clear. Glow only, no
+ * labels (issue #15 defers a legend to the mapping-tuning phase).
+ */
+function drawReadingTint(readingValues, W, H) {
+  let best = null;
+  for (const r of readingValues) {
+    if (r.active && r.value > 0.1 && READING_RGB[r.id]) {
+      if (!best || r.value > best.value) best = r;
+    }
+  }
+  if (!best) return;
+
+  const { r, g, b } = READING_RGB[best.id];
+  const alpha = Math.min(0.45, best.value * 0.5);
+  const grad = skeletonCtx.createRadialGradient(
+    W / 2, H / 2, Math.min(W, H) * 0.35,
+    W / 2, H / 2, Math.max(W, H) * 0.72,
+  );
+  grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0)`);
+  grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, ${alpha})`);
+  skeletonCtx.fillStyle = grad;
+  skeletonCtx.fillRect(0, 0, W, H);
 }
 
 // --- Debug overlay ---
