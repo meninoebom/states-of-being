@@ -74,10 +74,23 @@ main {
   margin-bottom: 6px;
 }
 
+.song-artist {
+  font-size: 13px;
+  color: #aaa;
+  margin-top: -4px;
+  margin-bottom: 8px;
+}
+
 .song-sections {
   font-size: 12px;
   color: #555;
   text-transform: capitalize;
+}
+
+.song-license {
+  font-size: 11px;
+  color: #555;
+  margin-top: 6px;
 }
 
 /* Controls */

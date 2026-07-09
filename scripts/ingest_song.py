@@ -22,7 +22,8 @@ def slugify(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
 
 
-def ingest(song_path: str, api_url: str, library_dir: str):
+def ingest(song_path: str, api_url: str, library_dir: str,
+           artist: str, license_: str, cover: str | None = None):
     song_file = Path(song_path)
     if not song_file.exists():
         print(f"Error: {song_path} not found")
@@ -89,6 +90,17 @@ def ingest(song_path: str, api_url: str, library_dir: str):
         data["total_loops"] = len(data["tracks"])
         print(f"  Removed {len(failed_files)} failed tracks from metadata")
 
+    # 3b. Enrich with provenance metadata (#21). Duration comes from the
+    # analysis (latest section end); artist/license are supplied by the caller.
+    section_ends = [s["end"] for s in data.get("sections", []) if "end" in s]
+    duration = round(max(section_ends), 2) if section_ends else None
+    data["artist"] = artist
+    data["license"] = license_
+    if duration is not None:
+        data["duration"] = duration
+    if cover:
+        data["cover"] = cover
+
     # 4. Write metadata.json
     metadata_path = song_dir / "metadata.json"
     metadata_path.write_text(json.dumps(data, indent=2))
@@ -107,15 +119,22 @@ def ingest(song_path: str, api_url: str, library_dir: str):
     section_labels = list(dict.fromkeys(t["section"] for t in data["tracks"]))
     categories = list(dict.fromkeys(t["category"] for t in data["tracks"]))
 
-    catalog.append({
+    entry = {
         "slug": slug,
         "name": song_name,
+        "artist": artist,
+        "license": license_,
         "bpm": data["bpm"],
         "time_signature": data["time_signature"],
         "total_loops": data["total_loops"],
         "sections": section_labels,
         "categories": categories,
-    })
+    }
+    if duration is not None:
+        entry["duration"] = duration
+    if cover:
+        entry["cover"] = cover
+    catalog.append(entry)
 
     catalog_path.write_text(json.dumps(catalog, indent=2))
     print(f"Updated {catalog_path} ({len(catalog)} songs)")
@@ -129,6 +148,14 @@ if __name__ == "__main__":
                         help="Song Blender API URL")
     parser.add_argument("--library-dir", default="./library",
                         help="Local library directory (default: ./library)")
+    parser.add_argument("--artist", required=True,
+                        help="Song artist (real, verified value)")
+    parser.add_argument("--license", required=True, dest="license_",
+                        help="Usage license, e.g. 'CC-BY-4.0'. Legally required; "
+                             "never fabricate. See issues #11/#22.")
+    parser.add_argument("--cover", default=None,
+                        help="Optional cover image filename (placed in the song dir)")
     args = parser.parse_args()
 
-    ingest(args.song, args.api_url, args.library_dir)
+    ingest(args.song, args.api_url, args.library_dir,
+           args.artist, args.license_, args.cover)
