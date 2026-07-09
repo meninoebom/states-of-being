@@ -702,6 +702,12 @@ if (DEBUG) {
 // the choice for the session so a reload does not force the intro every time.
 const introBegin = document.getElementById('intro-begin');
 const introUnsupported = document.querySelector('.intro-unsupported');
+// The app behind the intro overlay. Marked inert while the intro is up so a
+// keyboard user cannot Tab into the covered song cards and controls.
+const appRegions = [document.querySelector('header'), document.getElementById('controls'), document.querySelector('main')];
+function setAppInert(on) {
+  for (const el of appRegions) if (el) el.inert = on;
+}
 
 // The guided flow depends on the camera. If the browser cannot provide one,
 // say so up front rather than letting Start fail with a raw error later.
@@ -713,14 +719,17 @@ if (!cameraSupported) {
 
 function beginExperience() {
   document.body.classList.add('begun');
+  setAppInert(false); // hiding the overlay drops focus to body; app is now reachable
   try { sessionStorage.setItem('sb-begun', '1'); } catch { /* private mode: ignore */ }
 }
 
 if (introBegin) introBegin.addEventListener('click', beginExperience);
 
-// Skip the intro if the visitor already began earlier this session.
+// Skip the intro if the visitor already began earlier this session, otherwise
+// hold keyboard focus out of the covered app until Begin.
 let alreadyBegun = false;
 try { alreadyBegun = sessionStorage.getItem('sb-begun') === '1'; } catch { /* ignore */ }
 if (alreadyBegun) document.body.classList.add('begun');
+else setAppInert(true);
 
 picker.load();

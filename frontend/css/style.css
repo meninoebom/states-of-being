@@ -606,8 +606,7 @@ body.begun #intro { display: none; }
 body.no-camera #intro-begin { display: none; }
 
 @media (prefers-reduced-motion: reduce) {
-  #intro { animation: none; }
-  .intro-inner { animation: none; }
+  #intro, .intro-inner { animation: none; }
   #intro-begin { transition: none; }
 }
 
