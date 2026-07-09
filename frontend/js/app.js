@@ -376,6 +376,9 @@ function detectLoop() {
     if (noBodyPromptShown) {
       noBodyPromptShown = false;
       setStatus('Playing');
+      // Clear the on-stage nudge (mobile hides the header, so #status alone
+      // would be invisible there).
+      if (mode === 'webcam' && phaseIndicator) phaseIndicator.style.display = 'none';
     }
 
     // Update each detected body
@@ -431,7 +434,14 @@ function detectLoop() {
     // the user to step into frame once they've been absent for a moment.
     if (!noBodyPromptShown && now - lastBodySeen > NO_BODY_PROMPT_MS) {
       noBodyPromptShown = true;
-      setStatus('Step into frame to shape the music');
+      const prompt = 'Step into frame to shape the music';
+      setStatus(prompt);
+      // Also surface it on the stage: mobile full-screen hides the header, so
+      // the phase indicator is the only prompt a dancer across the room sees.
+      if (phaseIndicator) {
+        phaseIndicator.textContent = prompt;
+        phaseIndicator.style.display = 'block';
+      }
     }
   } else if (playing && mode === 'arc' && arc) {
     // No body detected — still tick arc so timed phases advance. Arc starts with
