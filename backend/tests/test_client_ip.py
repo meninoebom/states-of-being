@@ -39,6 +39,14 @@ def test_trusted_hops_exceeding_entries_clamps_to_leftmost():
     assert extract_client_ip(header, fallback="10.0.0.1", trusted_hops=9) == "203.0.113.5"
 
 
+def test_nonpositive_trusted_hops_does_not_crash():
+    # A misconfigured TRUSTED_PROXY_HOPS (0 or negative) must never raise; it
+    # clamps to the rightmost entry rather than throwing on the hot path.
+    header = "1.1.1.1, 203.0.113.5"
+    assert extract_client_ip(header, fallback="10.0.0.1", trusted_hops=0) == "203.0.113.5"
+    assert extract_client_ip(header, fallback="10.0.0.1", trusted_hops=-3) == "203.0.113.5"
+
+
 def test_whitespace_is_stripped():
     header = "1.1.1.1 ,  203.0.113.5 "
     assert extract_client_ip(header, fallback="10.0.0.1") == "203.0.113.5"

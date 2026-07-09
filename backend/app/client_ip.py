@@ -38,6 +38,9 @@ def extract_client_ip(
     if forwarded_for:
         parts = [p.strip() for p in forwarded_for.split(",") if p.strip()]
         if parts:
-            index = max(0, len(parts) - trusted_hops)
+            # Count `trusted_hops` from the right, clamped to a valid index so a
+            # misconfigured hop count (0, negative, or larger than the list)
+            # never raises — it just falls back to an endpoint of the list.
+            index = min(len(parts) - 1, max(0, len(parts) - trusted_hops))
             return parts[index]
     return fallback
