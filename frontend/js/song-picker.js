@@ -2,12 +2,13 @@
  * Song picker — fetches catalog and renders song cards.
  */
 
-// Placeholder written by the backfill when a real value could not be verified
-// (see scripts/backfill_catalog_metadata.py). We never surface it to users.
-const NEEDS_REVIEW = 'UNKNOWN - NEEDS REVIEW';
+// Provenance we haven't verified yet is written as a neutral placeholder. A
+// blank line reads better than "Unknown"/"unlicensed", so the picker just omits
+// those. (Older data used "UNKNOWN - NEEDS REVIEW"; kept here for back-compat.)
+const UNVERIFIED = new Set(['Unknown', 'unlicensed', 'UNKNOWN - NEEDS REVIEW']);
 
 function isReal(value) {
-  return typeof value === 'string' && value.trim() && value !== NEEDS_REVIEW;
+  return typeof value === 'string' && value.trim() !== '' && !UNVERIFIED.has(value.trim());
 }
 
 // Format a duration in seconds as m:ss (e.g. 189.75 -> "3:09").
@@ -64,8 +65,7 @@ export class SongPicker {
     const artistLine = isReal(song.artist)
       ? `<div class="song-artist">${escapeHtml(song.artist)}</div>`
       : '';
-    // License is legally sensitive; only show a verified value, never the
-    // "needs review" placeholder (see issues #11/#22).
+    // Only show a real, verified license — hide the "unlicensed" placeholder.
     const licenseLine = isReal(song.license)
       ? `<div class="song-license">${escapeHtml(song.license)}</div>`
       : '';

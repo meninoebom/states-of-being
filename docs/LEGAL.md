@@ -1,6 +1,17 @@
 # Song Blender — Legal Landscape
 
-Researched 2026-02-27. Not legal advice — notes for future decisions.
+Researched 2026-02-27. Not legal advice, just notes for future decisions.
+
+## Current Posture (decided 2026-07-09)
+
+This is the settled posture, so licensing is a pre-commercial chore rather than an open blocker.
+
+- **What the curated library is:** the shipped songs are copyrighted commercial tracks, used **unlicensed** for personal, experimental, non-commercial development of the tool. Their `license` is recorded as `"unlicensed"` and `artist` as `"Unknown"` (honest placeholders, never fabricated clearances).
+- **Risk accepted:** at the current scale (small, free, low traffic) the enforcement probability is low per the exposure analysis below, and that risk is knowingly accepted for now. This is **not** a gate on adding songs for development or on the roadmap's build work.
+- **The one real trigger:** *before this becomes commercially available in any meaningful way* (paid tier, ads, sponsorship, or a real distribution push), the curated library must move to properly-sourced material: pre-cleared only (public domain, Creative Commons, commissioned/AI-original, or explicit artist opt-in), with per-song rights recorded here. See "Viable Strategies" below for the options.
+- **Personal-use additions:** songs added from local files for dev/testing inherit this posture. No per-song action needed until the commercial trigger fires.
+
+Everything below is the original 2026-02-27 research that informs that decision. Keep it; it is the input to the pre-commercial sourcing work, not an outstanding task.
 
 ## Core Issue
 

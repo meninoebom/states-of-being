@@ -27,8 +27,8 @@ def list_songs():
 
     The catalog is validated on load: an entry missing its required `license`
     field is a server-side data error, so we fail loud (500) rather than serve
-    it. Validation checks presence only. A placeholder license (pending the
-    human legal review in #11/#22) still passes and is served.
+    it. Validation checks presence only, so a placeholder like "unlicensed"
+    (the default for the personal/dev-use library) still passes and is served.
     """
     catalog_path = _library_dir() / "catalog.json"
     try:

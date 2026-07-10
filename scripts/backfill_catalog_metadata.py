@@ -6,10 +6,10 @@ each song's `metadata.json` and the top-level `catalog.json`.
 
 - `duration` is computed from the analysis already on disk (the max section end
   time), so it is a real value, not a guess.
-- `artist` and `license` are preserved if already present. Where a real value
-  cannot be verified, a clearly-marked placeholder is written so a human can
-  fill it in. License is legally sensitive (see issues #11 / #22); we never
-  fabricate a value.
+- `artist` and `license` are preserved if already present. Where a value is not
+  known, a neutral placeholder is written ("Unknown" / "unlicensed") rather than
+  a guessed one. Sourcing real licenses is a pre-commercial task, not a blocker
+  at the current small, free scale — see docs/LEGAL.md "Current Posture".
 - `cover` is only written when a cover image file exists for the song.
 
 Idempotent: re-running it will not overwrite already-filled artist/license
@@ -23,9 +23,10 @@ import argparse
 import json
 from pathlib import Path
 
-# Placeholder written when a real value cannot be verified. Kept as a module
-# constant so the picker/tests can recognise "not yet reviewed" values.
-NEEDS_REVIEW = "UNKNOWN - NEEDS REVIEW"
+# Neutral placeholders written when a value is not known. The picker hides these
+# rather than surfacing them (see frontend/js/song-picker.js).
+UNKNOWN_ARTIST = "Unknown"
+UNKNOWN_LICENSE = "unlicensed"
 
 COVER_NAMES = ("cover.jpg", "cover.jpeg", "cover.png", "cover.webp")
 
@@ -58,8 +59,8 @@ def backfill(library_dir: str) -> None:
         metadata = json.loads(metadata_path.read_text())
 
         duration = compute_duration(metadata)
-        artist = metadata.get("artist") or entry.get("artist") or NEEDS_REVIEW
-        license_ = metadata.get("license") or entry.get("license") or NEEDS_REVIEW
+        artist = metadata.get("artist") or entry.get("artist") or UNKNOWN_ARTIST
+        license_ = metadata.get("license") or entry.get("license") or UNKNOWN_LICENSE
         cover = find_cover(song_dir)
 
         # Enrich both the per-song metadata and the catalog entry so the two
@@ -73,7 +74,8 @@ def backfill(library_dir: str) -> None:
                 target["cover"] = cover
 
         metadata_path.write_text(json.dumps(metadata, indent=2))
-        flag = "  <-- NEEDS REVIEW" if NEEDS_REVIEW in (artist, license_) else ""
+        unknown = {UNKNOWN_ARTIST, UNKNOWN_LICENSE} & {artist, license_}
+        flag = "  (provenance not set)" if unknown else ""
         print(f"{slug}: duration={duration}s artist={artist!r} license={license_!r}{flag}")
 
     catalog_path.write_text(json.dumps(catalog, indent=2))
