@@ -23,7 +23,7 @@ Empirically decoded with `AudioContext.decodeAudioData` in Chrome (Blink), cross
 
 Our pydub export writes the Xing/LAME gapless header, and Chrome honors it: the MP3 decodes **sample-identical** to the source with zero encoder delay or padding. So the defect is not present for our pipeline. Per the acceptance criterion ("switch format only if the defect is confirmed AND the new format decodes on Safari/iOS") we **keep MP3 192k**. A real library loop (`library_sample.mp3`) shows ~45ms lead / ~47ms trail, but that is genuine content silence from the *old* snap-to-silence chopper (the controlled tone had zero) — exactly what the new downbeat cuts + 5ms fades remove. Reproduce with `scripts/verify_mp3_gapless.py`. (Safari/iOS and Firefox were not exercised here; WebKit/Gecko also honor the LAME gapless header, so no switch is warranted — revisit only if a real device shows a seam.)
 
-**Remaining manual step:** the 4 curated library songs must be re-ingested once against the deployed new backend (requires the source audio) so their loops become bar-exact; then listen-test per this doc.
+**Next-session step (not a blocker):** re-ingest the 4 curated songs (and add new ones) so their loops pick up the bar-exact chopping. The flow is documented and ready: run the API locally and `python scripts/ingest_song.py --local <files>` (see CLAUDE.md "Adding / re-ingesting songs"). Licensing is handled by the docs/LEGAL.md "Current Posture" (unlicensed/personal-use until commercial), so it does not gate this.
 
 **Code refs:** `backend/app/services/loop_chopper.py` (`_fit_to_length`, `_apply_edge_fades`, non-vocal branch of `chop_stem`); `frontend/js/audio-engine.js` (`_setLoopPoints`).
 

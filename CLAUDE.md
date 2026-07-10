@@ -43,8 +43,8 @@ Upload song → [sequential: allin1 structure + Demucs stems] → chop → filte
 #### Vocal chopping: VAD, not section boundaries
 Vocals are sparse — silence between phrases is the signal. We use RMS-based Voice Activity Detection: compute per-frame energy (20ms), smooth (100ms rolling avg), threshold (0.008), group active regions, merge small gaps (< 300ms). Each phrase > 1s becomes its own loop. Instruments use section boundaries from allin1.
 
-#### Directional snap-to-silence
-End cuts search forward (let the phrase finish). Start cuts search backward (find quiet before phrase starts). Window: 0.8s. Direction matters more than window size.
+#### Directional snap-to-silence (vocals only)
+For **vocal** phrase cuts: end cuts search forward (let the phrase finish), start cuts search backward (find quiet before the phrase starts), window 0.8s. Direction matters more than window size. Non-vocal stems do NOT snap to silence anymore: they cut on downbeats and are bar-quantized for gapless loops (#18, see the loop-sync gotcha).
 
 #### Energy thresholds are per-stem
 drums: 0.005, bass: 0.003, vocals: 0.005, other: 0.003. Use `<=` (not `<`) to filter edge cases.
@@ -99,6 +99,31 @@ pip install -r requirements.txt
 # Create .env with REPLICATE_API_TOKEN=...
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
+
+### Adding / re-ingesting songs
+
+This is the loop for putting songs in the library and testing chopping changes.
+Ingest against a **locally-run** API so you exercise your in-progress code (the
+Demucs/allin1 models still run on Replicate either way, ~$0.135/song):
+
+```bash
+# 1. Start the API locally with a Replicate token (Doppler or backend/.env).
+cd backend && doppler run -- python -m uvicorn app.main:app --port 8000
+# (or: set REPLICATE_API_TOKEN in backend/.env, then run uvicorn directly)
+
+# 2. Ingest one or many songs from anywhere on disk, into ./library (repo root).
+python scripts/ingest_song.py --local ~/Music/*.mp3      # --artist / --license optional
+
+# 3. Listen-test at http://127.0.0.1:8000/app, then ship:
+git add library && git commit -m "library: add songs" && railway up --detach
+```
+
+Notes:
+- `--artist`/`--license` default to `"Unknown"`/`"unlicensed"` (personal/dev use;
+  see `docs/LEGAL.md` "Current Posture"). Pass real values when you have them.
+- Re-ingesting a song replaces its existing library entry (matched by slug).
+- The library is baked into the Docker image via git, so new songs only reach
+  users after the commit + `railway up`.
 
 ### API
 

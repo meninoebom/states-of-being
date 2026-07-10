@@ -141,21 +141,32 @@ def ingest(song_path: str, api_url: str, library_dir: str,
     print("Done!")
 
 
+PROD_API_URL = "https://song-blender-api-production.up.railway.app"
+LOCAL_API_URL = "http://127.0.0.1:8000"
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Ingest a song into the curated library")
-    parser.add_argument("song", help="Path to song file (mp3, wav, etc.)")
-    parser.add_argument("--api-url", default="https://song-blender-api-production.up.railway.app",
-                        help="Song Blender API URL")
+    parser = argparse.ArgumentParser(
+        description="Ingest one or more songs into the curated library. "
+                    "See CLAUDE.md 'Adding / re-ingesting songs' for the full flow.")
+    parser.add_argument("song", nargs="+", help="Path(s) to song file(s) (mp3, wav, etc.)")
+    parser.add_argument("--api-url", default=None,
+                        help=f"Song Blender API URL (default: {PROD_API_URL})")
+    parser.add_argument("--local", action="store_true",
+                        help=f"Shortcut for --api-url {LOCAL_API_URL} (a locally-run API, "
+                             "so you ingest with your in-progress code changes).")
     parser.add_argument("--library-dir", default="./library",
                         help="Local library directory (default: ./library)")
-    parser.add_argument("--artist", required=True,
-                        help="Song artist (real, verified value)")
-    parser.add_argument("--license", required=True, dest="license_",
-                        help="Usage license, e.g. 'CC-BY-4.0'. Legally required; "
-                             "never fabricate. See issues #11/#22.")
+    parser.add_argument("--artist", default="Unknown",
+                        help="Song artist, if known (default: 'Unknown').")
+    parser.add_argument("--license", default="unlicensed", dest="license_",
+                        help="Usage terms, if known (default: 'unlicensed'). Source real "
+                             "licenses before any commercial release; see docs/LEGAL.md "
+                             "'Current Posture'.")
     parser.add_argument("--cover", default=None,
                         help="Optional cover image filename (placed in the song dir)")
     args = parser.parse_args()
 
-    ingest(args.song, args.api_url, args.library_dir,
-           args.artist, args.license_, args.cover)
+    api_url = args.api_url or (LOCAL_API_URL if args.local else PROD_API_URL)
+    for song_path in args.song:
+        ingest(song_path, api_url, args.library_dir,
+               args.artist, args.license_, args.cover)
