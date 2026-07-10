@@ -20,8 +20,8 @@
       "harmonic_bed",
       "accent"
     ],
-    "artist": "UNKNOWN - NEEDS REVIEW",
-    "license": "UNKNOWN - NEEDS REVIEW",
+    "artist": "Unknown",
+    "license": "unlicensed",
     "duration": 209.32
   },
   {
@@ -42,8 +42,8 @@
       "hook",
       "accent"
     ],
-    "artist": "UNKNOWN - NEEDS REVIEW",
-    "license": "UNKNOWN - NEEDS REVIEW",
+    "artist": "Unknown",
+    "license": "unlicensed",
     "duration": 274.35
   },
   {
@@ -67,8 +67,8 @@
       "hook",
       "accent"
     ],
-    "artist": "UNKNOWN - NEEDS REVIEW",
-    "license": "UNKNOWN - NEEDS REVIEW",
+    "artist": "Unknown",
+    "license": "unlicensed",
     "duration": 335.49
   },
   {
@@ -91,8 +91,8 @@
       "accent",
       "hook"
     ],
-    "artist": "UNKNOWN - NEEDS REVIEW",
-    "license": "UNKNOWN - NEEDS REVIEW",
+    "artist": "Unknown",
+    "license": "unlicensed",
     "duration": 189.75
   }
 ]

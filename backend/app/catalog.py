@@ -4,15 +4,15 @@ The catalog (``library/catalog.json``) is the list surfaced to the song picker.
 Each entry describes one curated song. Beyond the musical fields (bpm, sections,
 categories) it carries provenance metadata added in #21:
 
-- ``artist``   — who made the song (string)
+- ``artist``   — who made the song (string; "Unknown" when unverified)
 - ``duration`` — song length in seconds (number)
-- ``license``  — REQUIRED to be present. The usage terms under which the song
-                 is included. Validation checks presence only, not correctness:
-                 an entry with a blank/missing license is rejected, but a
-                 placeholder value (e.g. "UNKNOWN - NEEDS REVIEW", written by the
-                 backfill when the real terms are not yet verified) passes and is
-                 served. Verifying the actual license values is a human legal
-                 task tracked in issues #11 / #22.
+- ``license``  — REQUIRED to be present so every song states *some* terms.
+                 Validation checks presence only, not correctness: a placeholder
+                 like "unlicensed" (the default for the personal/dev-use curated
+                 library) passes and is served; a blank/missing license is
+                 rejected. Sourcing properly-licensed songs is a pre-commercial
+                 task, not a blocker at the current small, free scale — see
+                 docs/LEGAL.md "Current Posture".
 - ``cover``    — optional path/URL to a cover image (omitted when none exists)
 
 ``validate_song_entry`` and ``load_catalog`` are kept dependency-free (no
@@ -25,8 +25,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-# Fields every catalog entry must carry. ``license`` is here because shipping a
-# song without stated usage terms is a legal risk, not just a data-quality one.
+# Fields every catalog entry must carry. ``license`` is here so every song
+# states its terms explicitly (even if just "unlicensed"), rather than leaving
+# provenance silently absent.
 REQUIRED_FIELDS = ("slug", "name", "license")
 
 
